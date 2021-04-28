@@ -14,7 +14,7 @@ Read the documentation online at https://paulo-al-castro.github.io/mt5se/
 
 <a href="https://paulo-al-castro.github.io/mt5se/intro.html"> Introduction to mt5se</a>
 
-You may download jupyter notebook with example from github: https://github.com/paulo-al-castro/mt5se
+You may download jupyter notebooks with examples from github: https://github.com/paulo-al-castro/mt5se
 
 Source code
 ===========
