@@ -1,37 +1,22 @@
-## Welcome to GitHub Pages
+Package mt5se provides access to Stock Exchanges to python programs through Metatrader and some brokers. It can be used with NYSE,Nasdaq, B3(Brazilian Stock Exchange). For instance, you may access Nasdaq and NYSE with TradeView broker and you may access B3 with XP, Clear,Rico and others...
 
-You can use the [editor on GitHub](https://github.com/paulo-al-castro/mt5se/edit/gh-pages/index.md) to maintain and preview the content for your website in Markdown files.
+It allows access to price data (open, close, high, low) and book data (bid, ask) and It also allows order submission and management!!
 
-Whenever you commit to this repository, GitHub Pages will run [Jekyll](https://jekyllrb.com/) to rebuild the pages in your site, from the content in your Markdown files.
+Pyhton Framework for Autonomous Traders based on AI (mt5se)
+==========================================
 
-### Markdown
 
-Markdown is a lightweight and easy-to-use syntax for styling your writing. It includes conventions for
+Documentation
+=============
 
-```markdown
-Syntax highlighted code block
+Read the documentation online at https://github.com/paulo-al-castro/mt5se/docs/index.html
 
-# Header 1
-## Header 2
-### Header 3
+Source code
+===========
 
-- Bulleted
-- List
+https://github.com/paulo-al-castro/mt5se
 
-1. Numbered
-2. List
+Contact
+=======
 
-**Bold** and _Italic_ and `Code` text
-
-[Link](url) and ![Image](src)
-```
-
-For more details see [GitHub Flavored Markdown](https://guides.github.com/features/mastering-markdown/).
-
-### Jekyll Themes
-
-Your Pages site will use the layout and styles from the Jekyll theme you have selected in your [repository settings](https://github.com/paulo-al-castro/mt5se/settings/pages). The name of this theme is saved in the Jekyll `_config.yml` configuration file.
-
-### Support or Contact
-
-Having trouble with Pages? Check out our [documentation](https://docs.github.com/categories/github-pages-basics/) or [contact support](https://support.github.com/contact) and we’ll help you sort it out.
+paulo.al.castro@gmail.com
