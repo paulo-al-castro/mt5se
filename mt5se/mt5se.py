@@ -275,17 +275,19 @@ def get_volume_step(assetId):
     returns the max volume of shares thay you can buy, with your balance
         it also observes the volume step (a.k.a minimum number of shares you can trade)
 """
-def get_affor_shares(assetId,money=None,price=None,volumeStep=None):
+def get_affor_shares(assetId,price,money=None,volumeStep=None):
     global inbacktest
     global bts
     if inbacktest:
         #print('Esta em backtest. bts=')#, bts)
-        return backtest.get_affor_shares(bts,assetId,money,price,volumeStep)
+        if money==None:
+            money=bts['capital']
+        return pget_affor_shares(assetId,price,money,volumeStep)
     #else:
       #  print('NAO esta em backtest')
     pget_affor_shares(assetId,money,price,volumeStep)
 
-def pget_affor_shares(assetId,money=None,price=None,volumeStep=None):
+def pget_affor_shares(assetId,price,money=None,volumeStep=None):
     if not connected:
         print("In order to use this function, you must be connected to the Stock Exchange. Use function connect()")
         return

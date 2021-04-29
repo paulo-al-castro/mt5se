@@ -66,12 +66,7 @@ def get_shares(bts,asset):
 def get_balance(bts):
     return bts['capital']
 
-def get_affor_shares(bts,dbars,assetId,money=None,volumeStep=None):
-    if money==None:
-        money=bts['capital']
-    bars=dbars[assetId]
-    price=bars['close'].iloc[-1]
-    return se.pget_affor_shares(assetId,money,price,volumeStep)
+
 
 ## assume-se que todos os ativos tem o mesmo numero de barras do ativo indice zero assets[0] no periodo de backtest
 sim_dates=[]
@@ -253,7 +248,7 @@ def run(trader,bts):
         print("Starting at simulated date=",sim_dates[0]," len=",len(sim_dates))
     while not endedBckt(bts):
         #orders=trader.getNewInfo(dbars)
-        orders=trader.trade(bts,dbars)
+        orders=trader.trade(dbars)
         dbars=getCurrBars(bts,dbars)
         computeOrders(orders,bts,dbars)
         if bts['verbose']:

@@ -274,7 +274,7 @@ def run(trader,ops):
             print('Market is NOT open! we will wait until it is open...')
             time.sleep(1)
     while not endedOps(ops):
-        orders=trader.trade(ops,dbars)
+        orders=trader.trade(dbars)
         executeOrders(orders,ops,dbars)
         dbars=getCurrBars(ops,dbars)
         time.sleep(delay)
