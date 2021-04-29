@@ -1,0 +1,211 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+  <meta content="text/html; charset=ISO-8859-1" http-equiv="content-type">
+  <title>Autonomous Traders with mt5se</title>
+</head>
+<body>
+<br>
+<big style="font-weight: bold;"><big><br>
+<big>Let's talk about Autonomous Traders</big></big></big><br>
+<br>
+<br>
+<hr style="width: 100%; height: 2px;"><br>
+<big>There are many initiatative that try to create software able to
+buy and sell financial assets (stock, foreign exchanges, etc) in an
+autonomous way.&nbsp; There are some digital platforms that allow
+thedevelopment,&nbsp; test&nbsp; and&nbsp; deployment&nbsp; of&nbsp;
+trading&nbsp; agents&nbsp; (or&nbsp; robots)in simulated or real
+markets. <br>
+<br>
+In fact, autonomous trading robots have&nbsp; been&nbsp; studied&nbsp;
+in&nbsp; artificial&nbsp; intelligence&nbsp; area&nbsp; for&nbsp;
+some&nbsp; time. Some&nbsp; of&nbsp; these&nbsp; work&nbsp; focus&nbsp;
+on&nbsp; very&nbsp; short&nbsp; horizons&nbsp; of&nbsp; investment
+(often called high&nbsp; frequency&nbsp; trading),&nbsp; while&nbsp;
+others&nbsp; deal&nbsp; with&nbsp; longer&nbsp; periods.<br>
+<br>
+These&nbsp; autonomous&nbsp; strategies&nbsp; may be created with some
+simple idea (moving averages, for instance), or more complex approaches
+including the use of complex Artificial Intelligence algorithms.&nbsp;
+The&nbsp; spectrum&nbsp; of&nbsp; used&nbsp; AI&nbsp; techniques&nbsp;
+in&nbsp; finance&nbsp; field&nbsp; is&nbsp; wide and it includes more
+recent approaches like convolutional neuralnetworks and deep
+reinforcement learning.&nbsp; <br>
+<br>
+There are many cases, where&nbsp;&nbsp; the&nbsp;&nbsp;
+developers&nbsp; are successful&nbsp; in creating&nbsp;&nbsp;
+robots&nbsp;&nbsp; with great&nbsp; performance&nbsp; when&nbsp;
+executing&nbsp; with&nbsp; historical&nbsp; price&nbsp; series
+(so&nbsp; called&nbsp; backtesting).&nbsp; Furthermore,&nbsp;
+some&nbsp; electronic&nbsp; platforms make&nbsp; available&nbsp;
+thousands&nbsp; of&nbsp; robots&nbsp; that&nbsp; [allegedly]&nbsp;
+are&nbsp; able to be&nbsp; profitable&nbsp; in&nbsp; real&nbsp;
+markets.&nbsp; <br>
+<br>
+Nevertheless, when these&nbsp; robots&nbsp; are&nbsp; used&nbsp;
+in&nbsp; real&nbsp; markets&nbsp; (or&nbsp; data&nbsp; not&nbsp;
+used&nbsp; intheir&nbsp; training&nbsp; or&nbsp; evaluation)&nbsp;
+frequently&nbsp; they&nbsp; present&nbsp; very&nbsp; poor
+performance&nbsp; and&nbsp; high&nbsp; variance&nbsp; of&nbsp; returns.
+<br>
+<br>
+Building Reliable Autonomous Traders is a VERY complex task that require dealing with several challenging, as we will see...<br>
+</big><br>
+<br>
+<hr style="width: 100%; height: 2px;"><big><big><span style="font-weight: bold;">Algortitms that can invest [ better than people] ?? </span></big></big><br>
+<big><br>
+&ldquo;<span style="font-style: italic;">Few people have what it takes
+to be great investors. Some can be taught, but not everyone . . . and
+those who can be taught can&rsquo;t be taught everything. </span><br style="font-style: italic;">
+<br style="font-style: italic;">
+<span style="font-style: italic;">Valid approaches work some of the time but not all. And </span><big style="font-style: italic;"><span style="font-weight: bold;">investing can&rsquo;t be reduced to an algorithm and turned over to a computer.</span></big><span style="font-style: italic;"> Even the best investors don&rsquo;t get it right every time. </span><br style="font-style: italic;">
+<br style="font-style: italic;">
+<span style="font-style: italic;">The reasons are simple. No rule
+always works. The environment isn&rsquo;t controllable, and
+circumstances rarely repeat exactly. </span><br style="font-style: italic;">
+<span style="font-style: italic;">Psychology plays a major role in
+markets, and because it&rsquo;s highly variable, cause- and- effect
+relationships aren&rsquo;t reliable. An investment approach may work
+for a while but eventually the actions it calls for will change the
+environment, meaning a new approach is needed. And if others emulate an
+approach, that will blunt its effectiveness.</span>&rdquo;<br>
+<br>
+The most important thing: uncommon sense for the thoughtful investor.
+Howard Marks. Columbia Press. 2011 &nbsp;- &nbsp; &nbsp; &ldquo;This is
+that rarity, a useful book."--Warren Buffett</big><br>
+<br>
+<hr style="width: 100%; height: 2px;"><big><big><span style="font-weight: bold;">What happens if Algo Traders become ubiquitous?</span><br style="font-weight: bold;">
+</big></big><br>
+<br>
+<big><br>
+</big>
+<ul>
+  <li><big>Would everybody become rich or at least present very high average returns on their investments?</big></li>
+  <li><big>The short answer is no. </big></li>
+  <li><big>We believe the scenario described by Eugene Fama [6] in his Efficient Market Hypothesis (EMH) would take place. </big></li>
+  <li><big>The EMH states that financial markets are efficient in
+pricing assets. Asset prices would reflect all information publicly
+available and the collective beliefs of all investors over the
+foreseeable future. </big></li>
+  <li><big>Thus, it would not be possible to overcome the performance
+of the market, using information that is known by the market, except
+for simple chance</big></li>
+</ul>
+<br>
+<hr style="width: 100%; height: 2px;"><br>
+<big><big><big><span style="font-weight: bold;">How hard is Autonomous trading?</span></big></big></big><br>
+<br>
+<br>
+<ul>
+  <li><big><big>The environment faced by the autonomous investment analysts could be classified in a classic way as: </big></big></li>
+</ul>
+<div style="margin-left: 80px;">
+<ul>
+  <li><big><big>partially observable, </big></big></li>
+  <li><big><big>sequential, </big></big></li>
+  <li><big><big>stochastic, </big></big></li>
+  <li><big><big>dynamic, </big></big></li>
+  <li><big><big>continuous </big></big></li>
+  <li><big><big>and multiagent,</big></big></li>
+</ul>
+</div>
+<ul>
+  <li><big><big>Which is the most complex environment class</big></big></li>
+  <li><big><big>However, it does not really represents the whole complexity of the problem. </big></big></li>
+  <li><big><big>More than stochastic, such environment is also a
+non-stationary process (Probability distributions do change along the
+time) and it is also strategic in the sense that two traders compete
+for a more accurate valuation of assets and their actions may change
+other agents&rsquo; behavior.</big></big></li>
+</ul>
+<br>
+<hr style="width: 100%; height: 2px;"><big><big><span style="font-weight: bold;">Many exciting Opportunities and Technologies..</span></big></big><br>
+<br>
+<big><big><br>
+</big></big>
+<ul>
+  <li><big><big>Deep Learning</big></big></li>
+  <li><big><big>Convolutional neural networks tem apresentado
+execelentes resultados no processamento de imagens, mas tamb&eacute;m
+em an&aacute;lises de s&eacute;ries temporais (pre&ccedil;o,
+volume,etc.) e podem ser muito &uacute;teis na constru&ccedil;&atilde;o
+de novos algoritmos </big></big></li>
+  <li><big><big>The deep network approach has been tested in different tecnhiques with promising results...</big></big></li>
+  <li><big><big>Deep Reinforcemente Learning</big></big></li>
+  <li><big><big>Deep Bayesian Networks</big></big></li>
+  <li><big><big>Agent based Simulations</big></big></li>
+  <li><big><big>Cognitive Computing</big></big></li>
+  <li><big><big>Specially Natural language processing, Sentiment analysis and human-computer interaction</big></big></li>
+  <li><big><big>A Small Market (like Brazil) may take more time to
+adjust to new information, it gives opportunities to Algo trading to
+explore it</big></big></li>
+</ul>
+<br>
+<hr style="width: 100%; height: 2px;"><big><big><br style="font-weight: bold;">
+<big><span style="font-weight: bold;">Framework mt5bse</span></big></big></big><br>
+<br>
+<big>The framework mt5se provides access to the Stock
+Exchange&nbsp;markets to python programs through Metatrader and some
+Brazilian brokers (XP, Clear corretora, and others...)<br>
+<br>
+It allows access to price data (open, close, high, low) and book data (bid, ask) and it also allows order placement.<br>
+<br>
+mt5se&nbsp;provides an API and facilitates the creation of autonomous traders based on traditional algorithms or AI techniques <br>
+</big><br>
+<br>
+Primary information source: <br>
+https://github.com/paulo-al-castro/mt5se/<br>
+Notebooks, examples and tutorials<br>
+<br>
+<br>
+<hr style="width: 100%; height: 2px;"><big><big><big><span style="font-weight: bold;">Metatrader 5</span></big></big></big><br>
+<br>
+<br>
+<img style="width: 800px; height: 560px;" alt="MetaTrader5 connect to the Braziilian Exchange (B3)" src="file:///C:/Users/PauloAndre/Dropbox/Documentos/FCMF_Projetos/IA_Aplicada/mt5se/Practice/mt5se_package/images/mt5_2.png"><br>
+<br>
+<br>
+<big>MetaTrader 5 is a multi-asset platform offering trading
+possibilities and technical analysis tools, as well as enabling the use
+of automated trading systems (trading robots). MT5 is a product of
+MetaQuotes Software Corp.<br>
+<br>
+<br>
+MT5 uses a proprietary language called MQL5, which is similar to C++.
+It is not an open source software, but it is free to use by retail
+investors and traders<br>
+<br>
+<br>
+URL: <a href="https://www.metatrader5.com/">https://www.metatrader5.com/<br>
+</a></big><br>
+<br>
+<hr style="width: 100%; height: 2px;"><br>
+<br>
+<img style="width: 800px; height: 433px;" alt="mt5se and Autonomous Traders" src="file:///C:/Users/PauloAndre/Dropbox/Documentos/FCMF_Projetos/IA_Aplicada/mt5se/Practice/mt5se_package/images/mt5se.png"><br>
+<br>
+<ul>
+  <li><big>Data&nbsp; Collector: According to theStrategy, there are
+setof&nbsp; data&nbsp; points&nbsp; that&nbsp; needs&nbsp; to&nbsp;
+be&nbsp; collected&nbsp; and&nbsp; properly stored&nbsp; in&nbsp;
+theMarket&nbsp; informationin&nbsp; a&nbsp; continuous&nbsp; way. That
+is the role of the Data collector component.</big></li>
+  <li><big>Trading Strategy:&nbsp; it&nbsp; is&nbsp; the&nbsp;
+implementation&nbsp; of&nbsp; the&nbsp; function&nbsp; that decides the
+Robot&rsquo;s actions according to current portfolio and Market
+situation. It can arbirtraly complex and it needs to deal with market
+prediction and risk management.</big></li>
+  <li><big>Order&nbsp;&nbsp; Processor:&nbsp; Once&nbsp; the Strategy
+decides&nbsp; which orders to submit according to the observed Market
+information and current portfolio. These orders&nbsp; are&nbsp;
+dispatched&nbsp; to&nbsp; some&nbsp; Market&nbsp; (real&nbsp;
+orsimulated) by the Order processor component to be completely or
+partially executed or even not executed according to the market
+conditions. The order processor also&nbsp; updates the&nbsp;
+portfolio&nbsp; information&nbsp; according&nbsp; to&nbsp; the&nbsp;
+result&nbsp; of&nbsp; the submitted orders</big></li>
+</ul>
+<br>
+<hr style="width: 100%; height: 2px;"><br>
+<big>For more information about builiding Auttonomous Traders with mt5se, <a href="https://paulo-al-castro.github.io/mt5se/">click here</a>.</big><br>
+</body>
+</html>
