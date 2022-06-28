@@ -27,6 +27,7 @@ def calcGeoAvgReturn(returns,n=None):
     calcTotalReturn(returns::Array{Float64}) 
    returns the Total return of a series of returns
    If the size is provided it considers just 'size' more recent (more to the right) returns
+   left - 0 - (size-1) - right
 """
 def calcTotalReturn(returns,size=None):
    ret=1

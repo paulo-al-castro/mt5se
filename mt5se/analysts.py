@@ -69,15 +69,16 @@ class MACDAnalyst(se.Analyst):
         self.signal=9
         assets=list(dbars.keys())
         df=se.get_close_prices_from_dbars(assets,dbars)
-        if len(df)<self.period+self.signal:
-            print('The setup period (prestart-start) should have at least ',self.period+self.signal,' data points')
-            return
-        # train model
         mu = se.mean_historical_return(df)
         self.alpha=0.5
         self.dbars=dbars
         self.mu=mu
         self.lastMacdUnderSignal=True
+        if len(df)<self.period+self.signal:
+            print('The setup period (prestart-start) should have at least ',self.period+self.signal,' data points')
+            return
+        # train model
+
 
     def analyze(self,dbars): #recebe um numero de barras igual a prestart-start porem ja roladas
         assets=dbars.keys()
@@ -100,13 +101,13 @@ class MACDAnalyst(se.Analyst):
                 MacdUnderSignal=True
             if(not MacdUnderSignal and  lastMacdUnderSignal): # alta: compra
     	        exp_ret=er+alpha*abs(er)
-    	        print('buy ',asset,' expr_r=', exp_ret)
+    	        #print('buy ',asset,' expr_r=', exp_ret)
             elif(MacdUnderSignal and  not lastMacdUnderSignal): #baixa: vende
                 exp_ret=er-alpha*abs(er)
-                print('sell ',asset,' expr_r=',exp_ret)
+                #print('sell ',asset,' expr_r=',exp_ret)
             else: # indefinido faz nada
                 exp_ret=None
-                print('Nothing ',asset,' expr_r=',exp_ret)  
+                #print('Nothing ',asset,' expr_r=',exp_ret)  
             lastMacdUnderSignal= MacdUnderSignal  	        
             returns[asset]=exp_ret
         return returns  
@@ -165,14 +166,14 @@ class RandomForestAnalyst(se.Analyst):
                 er=self.mu[asset]
                 if p==2:
                     exp_ret=er+self.alpha*abs(er)      #buy it
-                    print("buy ",asset)
+                    #print("buy ",asset)
                 elif p==0:
                     #sell it
                     exp_ret=er-self.alpha*abs(er)
-                    print("sell ",asset)
+                    #print("sell ",asset)
                 else:
                     exp_ret=None
-                    print("do nothing ",asset)
+                    #print("do nothing ",asset)
                 returns[asset]=exp_ret
             return returns    
 
@@ -194,3 +195,58 @@ def ensembleAnalyses(analysts_mus,mu):
     return pd.Series(expected_returns)
 
 
+
+"""
+  Analyst that ensembles the analyses of several analyst in order to form just one analysis of several assets
+    It uses a weigthed mean to ensemble the analyses. If weights are not provided, then it uses a simple arithmetic mean
+"""
+class EnsembleAnalyst(se.Analyst):
+    def __init__(self):
+        self.analysts=dict()
+        self.weights=dict()
+
+    def add_analyst(self,analyst,name,weight=1):
+        self.analysts[name]=analyst
+        self.weights[name]=weight  # weight of each analyst, if not provided it will be uniform!
+
+    def setup(self,dbars):
+        s=0
+        for name in self.analysts.keys():
+            self.analysts[name].setup(dbars)
+            s=s+self.weights[name]
+        for name in self.analysts.keys():
+            self.weights[name]=self.weights[name]/s   # defines the relative weight for each analyst 
+        
+    # Receives dbars[asset] - a bars dataframe for each asset in a dictionary
+    #   and returns a dictionary with the target price for each asset
+    def analyze(self,dbars):
+        analysts_prices=dict()
+        for name in self.analysts.keys():
+            prices=self.analysts[name].analyze(dbars)
+            analysts_prices[name]=prices
+        assets=dbars.keys()
+        return self.ensembleExpectReturns(analysts_prices,assets)
+
+    # Receives dbars[asset] - a bars dataframe for each asset in a dictionary
+    #   and frees resources used by the Analyst
+    def ending(self,dbars):
+        for name in self.analysts.keys():
+            self.analysts[name].setup(dbars)
+
+    # analyst_prices is a dict with entry for each analyst, and for each analyst it is a dict for 
+    # the target price for each asset
+    def ensembleExpectReturns(self,analysts_prices,assets):
+        expectReturns=dict()
+        for asset in assets:
+            w_sum=0
+            expectReturns[asset]=0
+            for anl in analysts_prices.keys(): # list of analysts
+                if analysts_prices[anl][asset]!=None and analysts_prices[anl][asset]>0: # if analyst has estimate, it is included!
+                    expectReturns[asset]=expectReturns[asset]+analysts_prices[anl][asset]*self.weights[anl]
+                    #print('anl=',anl,' w=',self.weights[anl], ' anl price',analysts_prices[anl][asset],)
+                    w_sum=w_sum+self.weights[anl]
+            if w_sum>0:
+                expectReturns[asset]=expectReturns[asset]/w_sum # calculates mean target price of all that did not abstained
+            else:
+                expectReturns[asset]=-1 # if no analyst informed anything it abstain from giving a target price
+        return expectReturns

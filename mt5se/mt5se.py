@@ -10,7 +10,7 @@ import pandas as pd
 import numpy as np 
 import mt5se.backtest as backtest
 import random
-from math import *
+#from math import *
 from datetime import datetime
 from datetime import timedelta
 # importamos o módulo pytz para trabalhar com o fuso horário
@@ -30,20 +30,40 @@ platform=None  # digital plataform (M)
 connected=False
 inbacktest=False
 bts=None
-DAILY=1 # daily bars
-INTRADAY=2 # 1 minute bars
-H1=3 # 1 hour bars
+DAILY=mt5.TIMEFRAME_D1 # daily bars
+INTRADAY=mt5.TIMEFRAME_M1 # 1 minute bars
+H1=mt5.TIMEFRAME_H1 # 1 hour bars
+# comprehensive list of time frames
+TIMEFRAME_M1=mt5.TIMEFRAME_M1
+TIMEFRAME_M2=mt5.TIMEFRAME_M2
+TIMEFRAME_M3=mt5.TIMEFRAME_M3
+TIMEFRAME_M4=mt5.TIMEFRAME_M4
+TIMEFRAME_M5=mt5.TIMEFRAME_M5
+TIMEFRAME_M6=mt5.TIMEFRAME_M6
+TIMEFRAME_M10=mt5.TIMEFRAME_M10
+TIMEFRAME_M12=mt5.TIMEFRAME_M12
+TIMEFRAME_M15=mt5.TIMEFRAME_M15
+TIMEFRAME_M20=mt5.TIMEFRAME_M20
+TIMEFRAME_M30=mt5.TIMEFRAME_M30
+TIMEFRAME_H1=mt5.TIMEFRAME_H1
+TIMEFRAME_H2=mt5.TIMEFRAME_H2
+TIMEFRAME_H3=mt5.TIMEFRAME_H3
+TIMEFRAME_H4=mt5.TIMEFRAME_H4
+TIMEFRAME_H6=mt5.TIMEFRAME_H6
+TIMEFRAME_H8=mt5.TIMEFRAME_H8
+TIMEFRAME_H12=mt5.TIMEFRAME_H12
+TIMEFRAME_D1=mt5.TIMEFRAME_D1
+TIMEFRAME_W1=mt5.TIMEFRAME_W1
+TIMEFRAME_MN1=mt5.TIMEFRAME_MN1
 
 
 
-"""
+
+def connect(account=None,passw=None,mt5path=None):
+    """
    Connects to the specificied account, password and specifiec (by path) metatrader installation 
         if parameters are not specified it connects to last used account and password
 """
-def connect(account=None,passw=None,mt5path=None):
-	#if not se.connect():
-	#print(“Error on connection”, se.last_error())
-	#exit():
     if account is None and passw is None:
         if mt5path is None:
             res= mt5.initialize()
@@ -63,7 +83,9 @@ def connect(account=None,passw=None,mt5path=None):
             print('Error trying to connect to account: ',account, ' Error code:',mt5.last_error())
         return False
     info=mt5.account_info()
-    if info.margin_so_mode !=mt5.ACCOUNT_MARGIN_MODE_RETAIL_NETTING:
+    if info.margin_so_mode !=mt5.ACCOUNT_MARGIN_MODE_RETAIL_NETTING and info.margin_so_mode !=mt5.ACCOUNT_MARGIN_MODE_EXCHANGE:
+        # ACCOUNT_MARGIN_MODE_RETAIL_NETTING is usually used for simulated accounts
+        # ACCOUNT_MARGIN_MODE_EXCHANGE is usually used for real accounts
         print("It is NOT netting, but the stock exchange should be netting trade mode!! Error!!")  # B3 is also Netting!!
         return False
     #elif info.margin_so_mode ==mt5.ACCOUNT_MARGIN_MODE_RETAIL_HEDGING:
@@ -85,7 +107,9 @@ def connect(account=None,passw=None,mt5path=None):
         platform=ac.name
         connected=True
     return res
-"""
+
+def terminal_info():
+    """
     Returns info regarding the terminal in a dicitionary 
         For instance:
         'community_account': False,
@@ -112,13 +136,14 @@ def connect(account=None,passw=None,mt5path=None):
         'commondata_path': 'C:\\Users\\...\\AppData\\Roaming\\MetaQuotes\\Terminal\\Common
 
 """
-def terminal_info():
     if not connected:
         print("In order to use this function, you must be connected to the . Use function connect()")
         return
     term_info = mt5.terminal_info()
     return term_info
-"""
+
+def account_info(): 
+    """
     Returns info about the account as a dicitionary
     For instance:
   login=25115284
@@ -131,13 +156,13 @@ def terminal_info():
   margin_mode=2
   currency_digits=2
   fifo_close=False
-  balance=99511.4
+  balance=9...
   credit=0.0
   profit=41.82
-  equity=99553.22
-  margin=98.18
-  margin_free=99455.04
-  margin_level=101398.67590140559
+  equity=9.
+  margin=9..
+  margin_free=9..
+  margin_level=1..
   margin_so_call=50.0
   margin_so_so=30.0
   margin_initial=0.0
@@ -151,76 +176,79 @@ def terminal_info():
   company=MetaQuotes Software Corp.
 
 """
-def account_info(): 
     if not connected:
         print("In order to use this function, you must be connected to the Stock Exchange. Use function connect()")
         return
     account_info = mt5.account_info()
     return account_info
 
-"""
-    returns the current number of assets of the given symbol
-"""
+
 def get_shares(symbolId):
+    """
+    Returns the current number of assets of the given symbol.
+        It will be negative if there is a short position! and zero if there is no position
+"""
     global inbacktest
     global bts
     if inbacktest:
-        print('Esta em backtest. bts=', bts)
+        #print('Esta em backtest. bts=', bts)
         return backtest.get_shares(bts,symbolId)
     #else:
       #  print('NAO esta em backtest')
-
-
     if not connected:
         print("In order to use this function, you must be connected to the Stock Exchange. Use function connect()")
         return
     pos= mt5.positions_get(symbol=symbolId)
-    if pos!=None and pos!=():
+    if pos is not None and pos!=():
         d=pos[0]._asdict() 
-        return d['volume']
+        if d['type']==1:
+            return -1*d['volume']
+        else:
+            return d['volume']
     else:
         return 0
 
-    return pos['volume']
 
 
-"""
+
+def is_market_open(asset='B3SA3'):
+    """
   It returns if the market is open or not for new orders.
      Note that markets can close in different times for different assets, therefore
      you need to inform the target asset. The default target assets is B3 stock (it will work only in B3 stock exchange)
      For other exchanges inform a valid asset ticker (For instance, GOOG should work for Nasdaq).
      It there is no tick for 60 seconds, the market is considered closed!
 """
-def is_market_open(asset='B3SA3'):
-  if not connected:
-    print("In order to use this function, you must be connected to the Stock Exchange. Use function connect()")
-    return
+    if not connected:
+        print("In order to use this function, you must be connected to the Stock Exchange. Use function connect()")
+        return
    # si=mt5.symbol_info(asset)
-   # if si!=None:
+   # if siis not None:
   #      if si.trade_mode==mt5.SYMBOL_TRADE_MODE_FULL: # it does not work in XP/B3 (always True)
   #          return True
   #      else:
   #          return False
   #  return False
-  mt5.symbol_select(asset) # it makes sure that the symbol is present in Market Watch View
-  t_secs=mt5.symbol_info_tick(asset).time # time in seconds
-  now_dt=datetime.now(etctz)+timedelta(hours=-3)
-  last_tick_dt=datetime.fromtimestamp(t_secs,etctz)
-  #print(last_tick_dt)
-  #print(now_dt)
-  if now_dt>last_tick_dt+timedelta(seconds=60):
-      return False
-  else: 
-      return True
+    mt5.symbol_select(asset) # it makes sure that the symbol is present in Market Watch View
+    t_secs=mt5.symbol_info_tick(asset).time # time in seconds
+    now_dt=datetime.now(etctz)+timedelta(hours=-3)
+    last_tick_dt=datetime.fromtimestamp(t_secs,etctz)
+    #print(last_tick_dt)
+    #print(now_dt)
+    if now_dt>last_tick_dt+timedelta(seconds=60):
+        return False
+    else: 
+        return True
 
 
-"""
-It returns the today datetime (hours=minutes=seconds=0)
+
+def today(offset=None):
+    """
+Returns the today datetime (hours=minutes=seconds=0)
  You can define an offset in days.
     today(1) returns tomorrow
     today(-1) returns yesterday
 """
-def today(offset=None):
     dt=datetime.now()
     dt=datetime(dt.year,dt.month,dt.day,0,0,0)
     if offset is None:
@@ -232,20 +260,21 @@ def today(offset=None):
         dt=dt+timedelta(days=offset)
         return dt
 
-"""
-It returns the current datetime 
+
+def now(dayOffest=None,hourOffset=None,minOffset=None):
+    """
+    Returns the current datetime 
  You can define an offset in days,hours and minutes
     today(dayOffset=1) returns tomorrow
     today(dayOffset=-1) returns yesterday
     today(dayOffset=-1,hourOffset=-2,minOffset=-30) returns yesterday two hours and 30 minutes 
 """
-def now(dayOffest=None,hourOffset=None,minOffset=None):
     dt=datetime.now()
-    if dayOffest!=None:
-        dt=dt+timedelta(days=offset)
-    if hourOffset!=None:
+    if dayOffest is not None:
+        dt=dt+timedelta(days=dayOffest)
+    if hourOffset is not None:
         dt=dt+timedelta(hours=hourOffset)
-    if minOffset!=None:
+    if minOffset is not None:
         dt=dt+timedelta(minutes=minOffset) 
     return dt
 
@@ -256,7 +285,7 @@ def now(dayOffest=None,hourOffset=None,minOffset=None):
 """
 #def isMarketClosing(asset='B3SA3'): # it does not work in XP/B3 (always false)
 #    si=mt5.symbol_info(asset)
-#    if si!=None:
+#    if si is not None:
  #       if si.trade_mode==mt5.SYMBOL_TRADE_MODE_CLOSEONLY:
   #          return True
   #      else:
@@ -264,35 +293,37 @@ def now(dayOffest=None,hourOffset=None,minOffset=None):
   #  return False
 
 
-"""
+
+def get_volume_step(assetId):
+    """
   Returns the volume step for an asset
 """
-def get_volume_step(assetId):
     step=mt5.symbol_info(assetId).volume_step
     return step
     
-"""
-    returns the max volume of shares thay you can buy, with your balance
+
+def get_affor_shares(assetId,price,money=None,volumeStep=None):
+    """
+    Returns the max volume of shares thay you can buy, with your balance
         it also observes the volume step (a.k.a minimum number of shares you can trade)
 """
-def get_affor_shares(assetId,price,money=None,volumeStep=None):
     global inbacktest
     global bts
     if inbacktest:
         #print('Esta em backtest. bts=')#, bts)
-        if money==None:
+        if money is None:
             money=bts['capital']
         return pget_affor_shares(assetId,price,money,volumeStep)
     #else:
       #  print('NAO esta em backtest')
-    pget_affor_shares(assetId,money,price,volumeStep)
+    return pget_affor_shares(assetId,price,money,volumeStep)
 
 def pget_affor_shares(assetId,price,money=None,volumeStep=None):
     if not connected:
         print("In order to use this function, you must be connected to the Stock Exchange. Use function connect()")
         return
     if money is None:
-        money=mt5.account_info().balance
+        money=mt5.account_info().margin_free
     if money <=0:
         return 0.0
         
@@ -304,36 +335,46 @@ def pget_affor_shares(assetId,price,money=None,volumeStep=None):
         step=get_volume_step(assetId)
     else:
         step=volumeStep    
-
-
     free=0
     while free*close<money:
         free=free+step
+        #print('free=',free, ' close=',close,' money=',money  )
     return free-step
 
-""" 
- Returns the account balance in the default currency of the stock
-"""
+
 def get_balance():
+    """ 
+ Returns the Account balance (free resource) in the default currency of the stock
+        It is equivalent to free margin in MT5 jargon
+"""
+    if not connected:
+        print("In order to use this function, you must be connected to the Stock Exchange. Use function connect()")
+        return
     global inbacktest
+    global bts
     if inbacktest:
         #print('Esta em backtest. bts=')#, bts)
         return backtest.get_balance(bts)
     #else:
       #  print('NAO esta em backtest')
-    return mt5.account_info().balance
+    return mt5.account_info().margin_free
 
 
-"""
+
+
+
+def get_position_value(symbolId=None):
+    """
  Returns the current value in portfolio of a given symbol, or total value of alls symbol, if None is given
 """
-def get_position_value(symbolId=None):
     pos=get_positions(symbolId)
     if len(pos)>0:
         return sum(pos['volume']*pos['price_current'])
     else:
         return 0.0
-"""
+
+def get_positions(symbolId=None): 
+    """
  Returns a pandas dataframe with the position of a given symbol or group of symbols.
     If the parameter is None, it returns all current positions in the account
 #Example:
@@ -344,7 +385,6 @@ def get_position_value(symbolId=None):
     pos['price_current']  #current price of the asset
  #print("get position")
 """
-def get_positions(symbolId=None):  # return the current value ($) of assets (it does not include balance or margin)
     if not connected:
         print("In order to use this function, you must be connected to the Stock Exchange. Use function connect()")
         return
@@ -357,70 +397,99 @@ def get_positions(symbolId=None):  # return the current value ($) of assets (it 
         df=df[['symbol','type','volume', 'price_open', 'price_current']]
         return df
     else:
-        return 0.0
+        return pd.DataFrame()
 
 
-"""
-Creates and returns a buy order with the given symbolId, volume, price [optional], stop loss[optional], take profit [optional]
-"""
+
 def buyOrder(symbolId,volume,price=None,sl=None,tp=None): # Buying !!
-   if not connected:
+    """
+Creates and returns a buy order with the given symbolId, volume, price [optional], stop loss[optional], take profit [optional]
+    An order is a dictionary with at least the following fields:
+    "action": class of order 
+    "symbol":  symbol id
+    "volume": float 
+    "type":  ORDER_TYPE_SELL,
+    "deviation": 
+    "magic": 
+    "comment":
+    "type_time":
+    "type_filling": 
+    "price":
+    See also: checkOrder(ord), isSellOrder(ord), isBuyOrder(ord)
+"""
+    if not connected:
         print("In order to use this function, you must be connected to the Stock Exchange. Use function connect()")
         return
-   symbol_info = mt5.symbol_info(symbolId)
+    symbol_info = mt5.symbol_info(symbolId)
    #print("symbol=",symbolId," info=",symbol_info)
-   if symbol_info is None:
+    if symbol_info is None:
         setLastError(symbolId + " not found, can not create buy order")
         return None
  
 # se o símbolo não estiver disponível no MarketWatch, adicionamo-lo
-   if not symbol_info.visible:
-        #print(symbolId, "is not visible, trying to switch on")
-        if not mt5.symbol_select(symbolId,True):
-            setLastError("symbol_select({}}) failed! symbol=" +symbolId)
-            return None   
-   #point = mt5.symbol_info(symbolId).point
-   deviation = 20
-   
-   request = {
-    "action": mt5.TRADE_ACTION_DEAL,
-    "symbol": symbolId,
-    "volume": float(volume),
-    "type": mt5.ORDER_TYPE_BUY,
+    if not symbol_info.visible:
+            #print(symbolId, "is not visible, trying to switch on")
+            if not mt5.symbol_select(symbolId,True):
+                setLastError("symbol_select({}}) failed! symbol=" +symbolId)
+                return None   
+    #point = mt5.symbol_info(symbolId).point
+    deviation = 20
+    
+    request = {
+        "action": mt5.TRADE_ACTION_DEAL,
+        "symbol": symbolId,
+        "volume": float(volume),
+        "type": mt5.ORDER_TYPE_BUY,
 
-    "deviation": deviation,
-    "magic": random.randrange(100,100000),
-    "comment": "order by mt5se",
-    "type_time": mt5.ORDER_TIME_GTC,
-    "type_filling": mt5.ORDER_FILLING_RETURN,
-    }
-   if price is None:  # order a mercado
-       request['action']=mt5.TRADE_ACTION_DEAL
-       request['type']=mt5.ORDER_TYPE_BUY
-       request['price']=mt5.symbol_info_tick(symbolId).ask
-   else:  # order limitada
-       request['action']=mt5.TRADE_ACTION_PENDING
-       request['type']=mt5.ORDER_TYPE_BUY_LIMIT
-       request['price']=float(price)
-   if sl!=None:
-       request["sl"]=sl
-   if tp!=None:
-        request["tp"]= tp
-  
+        "deviation": deviation,
+        "magic": random.randrange(100,100000),
+        "comment": "order by mt5se",
+        "type_time": mt5.ORDER_TIME_GTC,
+        "type_filling": mt5.ORDER_FILLING_RETURN,
+        }
+    if price is None:  # order a mercado
+        request['action']=mt5.TRADE_ACTION_DEAL
+        request['type']=mt5.ORDER_TYPE_BUY
+        request['price']=mt5.symbol_info_tick(symbolId).ask
+    else:  # order limitada
+        request['action']=mt5.TRADE_ACTION_PENDING
+        request['type']=mt5.ORDER_TYPE_BUY_LIMIT
+        request['price']=float(price)
+    if sl is not None:
+        request["sl"]=sl
+    if tp is not None:
+            request["tp"]= tp
+    
 
-   return request
+    return request
 
 
-"""
-Creates and returns a sell order with the given symbolId, volume, price [optional], stop loss[optional], take profit [optional]
-"""
+
 def sellOrder(symbolId,volume,price=None,sl=None,tp=None): # Selling !!
+    """
+Creates and returns a sell order with the given symbolId, volume, price [optional], stop loss[optional], take profit [optional].
+    An order is a dictionary with at least the following fields:
+    "action": class of order 
+    "symbol":  symbol id
+    "volume": float 
+    "type":  ORDER_TYPE_SELL,
+    "deviation": 
+    "magic": 
+    "comment":
+    "type_time":
+    "type_filling": 
+    "price":
+    See also: checkOrder(ord), isSellOrder(ord), isBuyOrder(ord)
+"""
+    if not connected:
+        print("In order to use this function, you must be connected to the Stock Exchange. Use function connect()")
+        return
     symbol_info = mt5.symbol_info(symbolId)
     #print("symbol=",symbolId," info=",symbol_info)
     if symbol_info is None:
         setLastError(symbolId + " not found, can not create buy order")
         return None
-# se o símbolo não estiver disponível no MarketWatch, adicionamo-lo
+    # se o símbolo não estiver disponível no MarketWatch, adicionamo-lo
     if not symbol_info.visible:
         #print(symbolId, "is not visible, trying to switch on")
         if not mt5.symbol_select(symbolId,True):
@@ -433,14 +502,12 @@ def sellOrder(symbolId,volume,price=None,sl=None,tp=None): # Selling !!
     "symbol": symbolId,
     "volume": float(volume),
     "type": mt5.ORDER_TYPE_SELL,
-    
     "deviation": deviation,
     "magic": random.randrange(100,100000),
     "comment": "order by mt5se",
     "type_time": mt5.ORDER_TIME_DAY,
     "type_filling": mt5.ORDER_FILLING_FOK,
     }
-
     if price is None:  # order a mercado
        request['action']=mt5.TRADE_ACTION_DEAL
        request['type']=mt5.ORDER_TYPE_SELL
@@ -449,20 +516,19 @@ def sellOrder(symbolId,volume,price=None,sl=None,tp=None): # Selling !!
        request['action']=mt5.TRADE_ACTION_PENDING
        request['type']=mt5.ORDER_TYPE_SELL_LIMIT
        request['price']=float(price)
-
-    if sl!=None:
+    if sl is not None:
        request["sl"]=sl
    
-    if tp!=None:
+    if tp is not None:
         request["tp"]= tp
-    
     return request
 
-"""
+
+def isSellOrder(req):
+    """
     Returns true if it is a sell order, False if it is a buy order.
         It sets a descriptive error message (getLastError / setLastError) if there is an error
 """
-def isSellOrder(req):
     if req is None:
         print("Error! Order is None!!!!")
         return False
@@ -475,11 +541,30 @@ def isSellOrder(req):
         return False
 
 
+
+def isBuyOrder(req):
+    """
+    Returns true if it is a sell order, False if it is a buy order.
+        It sets a descriptive error message (getLastError / setLastError) if there is an error
 """
+    if req is None:
+        print("Error! Order is None!!!!")
+        return False
+    if req['type']==mt5.ORDER_TYPE_SELL_LIMIT or req['type']==mt5.ORDER_TYPE_SELL:
+        return False
+    elif req['type']==mt5.ORDER_TYPE_BUY_LIMIT or req['type']==mt5.ORDER_TYPE_BUY:
+        return True
+    else:
+        print("Error! Order is not buy our sell!!!!")
+        return False
+
+
+
+def checkOrder(req):
+    """
     Returns true if it a valid order
     It returns false in case of Short order or insufficient money to buy
 """
-def checkOrder(req):
     global inbacktest
     if inbacktest:
         #print('Esta em backtest. bts=')#, bts)
@@ -514,10 +599,11 @@ def checkOrder(req):
 
 
 lastErrorText=""
-"""
+
+def getLastError():
+    """
     Returns a string with the last error's message
 """
-def getLastError():
     global lastErrorText
     if lastErrorText is None or lastErrorText=="":
         return mt5.last_error()
@@ -525,19 +611,54 @@ def getLastError():
         aux=lastErrorText
         lastErrorText=None  
         return aux    
-"""
-    Sets the last error's message
-"""   
+ 
 def setLastError(error):
+    """
+    Sets the last error's message. Used together with getLastError
+"""  
     global lastErrorText
     lastErrorText=error
 
+lastOrderResult=""
+def setLastOrderResult(order,result):
+    """"
+       set the result of the last order. Used together with getLastOrderResult
+            result is a dictionary with four keys:
+            'symbol'  - asset id
+            'isSellOrder' - True if it is a sell order, false if it is a buy order
+            'shares'   - Number of shares of the order
+            'price'    -  Executed price for the order
+    """
+    global lastOrderResult
+    lastOrderResult=dict()
+    lastOrderResult['symbol']=order['symbol'] 
+    lastOrderResult['isSellOrder']=isSellOrder(order)
+    lastOrderResult['shares']=result.volume
+    lastOrderResult['price']=result.price
+    return lastOrderResult
+
+
+def getLastOrderResult():
+    """
+    Returns the result of the last succesful sent order
+        result is a dictionary with four keys:
+            'symbol'  - asset id
+            'isSellOrder' - True if it is a sell order, false if it is a buy order
+            'shares'   - Number of shares of the order
+            'price'    -  Executed price for the order
 """
+    global lastOrderResult
+    return lastOrderResult
+
+
+
+
+def sendOrder(order):
+    """
     Sends the given order to online execution 
         returns True if sucessfull and False otherwise
     Obs: This function should be used only for direct control traders
 """
-def sendOrder(order):
     if not connected:
         print("In order to use this function, you must be connected to the Stock Exchange. Use function connect()")
         return
@@ -559,12 +680,14 @@ def sendOrder(order):
        #             print("       traderequest: {}={}".format(tradereq_filed,traderequest_dict[tradereq_filed]))
         return False
     else:
+        setLastOrderResult(order,result)  # set the result of last sucessful order 
         return True
 
-"""
+
+def numOrders(): 
+    """
  Returns the number of active orders
 """
-def numOrders(): 
     if not connected:
         print("In order to use this function, you must be connected to the Stock Exchange. Use function connect()")
         return
@@ -575,53 +698,48 @@ def numOrders():
     else:
         return result
 
-#order fields  description:
-    #order_id | buy_sell | volume | price | sl | tp | 
-    #ticket | time_setup  time_setup_msc  time_expiration  type  type_time  type_filling  state  magic  
-    # volume_current  price_open   sl   tp  price_current  symbol comment external_id
-    #   ulong                         magic;            // Expert Advisor -conselheiro- ID (número mágico)
-   #  ulong                         order;            // Bilhetagem da ordem
-   #string                        symbol;           // Símbolo de negociação
-  # double                        volume;           // Volume solicitado para uma encomenda em lotes
-  # double                        price;            // Preço
-  # double                        stoplimit;        // Nível StopLimit da ordem
-  # double                        sl;               // Nível Stop Loss da ordem
-  # double                        tp;               // Nível Take Profit da ordem
-  # ulong                         deviation;        // Máximo desvio possível a partir do preço requisitado
- #  ENUM_ORDER_TYPE               type;             // Tipo de ordem
-    #  ORDER_TYPE_BUY  Ordem de Comprar a Mercado
-    #  ORDER_TYPE_SELL Ordem de Vender a Mercado
-    #  ORDER_TYPE_BUY_LIMIT Ordem pendente Buy Limit
-    #  ORDER_TYPE_SELL_LIMIT Ordem pendente Sell Limit
-    #  ORDER_TYPE_BUY_STOP Ordem pendente Buy Stop
-    #  ORDER_TYPE_SELL_STOP Ordem pendente Sell Stop
-    #  ORDER_TYPE_BUY_STOP_LIMIT Ao alcançar o preço da ordem, uma ordem pendente Buy Limit é colocada no preço StopLimit
-    #  ORDER_TYPE_SELL_STOP_LIMIT Ao alcançar o preço da ordem, uma ordem pendente Sell Limit é colocada no preço StopLimit
-    #  ORDER_TYPE_CLOSE_BY  Ordem de fechamento da posição oposta
-  # ENUM_ORDER_TYPE_FILLING       type_filling;     // Tipo de execução da ordem
-    #ORDER_FILLING_FOK  Esta política de preenchimento significa que uma ordem pode ser preenchida somente na quantidade especificada. Se a quantidade desejada do ativo não está disponível no mercado, a ordem não será executada. 
-  #  ENUM_ORDER_TYPE_TIME          type_time;        // Tipo de expiração da ordem
-    # ORDER_TIME_DAY     Ordem válida até o final do dia corrente de negociação
-  # datetime                      expiration;       // Hora de expiração da ordem (para ordens do tipo ORDER_TIME_SPECIFIED))
-  # string                        comment;          // Comentário sobre a ordem
-  # ulong                         position;         // Bilhete da posição
-  # ulong                         position_by;      // Bilhete para uma posição oposta
-"""
+
+def get_active_orders():  
+    """
     Returns a dataframe with all active orders
+order fields  description:
+    #order_id | symbol | type | price | sl | tp | 
+    # type: 0 - Buy (Market Order), 1  - Sell (Market Order)
+            2 - Buy (LImited Order), 3 - Sell (Limited Order)
 """
-def getOrders():  
     if not connected:
         print("In order to use this function, you must be connected to the Stock Exchange. Use function connect()")
         return
     orders=mt5.orders_get()
-    if orders == None or len(orders)==0:
-        print("No orders, error code={}".format(mt5.last_error()))
-        return None
-    else:
-        print("Total orders:",len(orders))
-        df=pd.DataFrame(list(orders),columns=orders[0]._asdict().keys())
+    df=pd.DataFrame()
+    if orders is None or len(orders)==0:
         return df
-      
+    else:
+        dfaux=pd.DataFrame(list(orders),columns=orders[0]._asdict().keys())
+        df['order_id']=dfaux['ticket']
+        df['symbol']=dfaux['symbol']
+        df['price']=dfaux['price_open']
+        df['type']=dfaux['type']
+        return df
+
+
+def cancel_order(order_id):  
+    """
+    Cancels a order specified by its order_id (see get_orders).
+        Returns True if the order is sucessfuly cancelled! False otherwise
+            If the order does not exist, it also returns False
+"""
+    if not connected:
+        print("In order to use this function, you must be connected to the Stock Exchange. Use function connect()")
+        return
+    order_id=int(order_id)
+    order=mt5.orders_get(ticket=order_id)
+    if order is None:
+        return False
+    remove=dict()
+    remove['action']=mt5.TRADE_ACTION_REMOVE
+    remove['order']=order_id
+    return mt5.order_send(remove)
 
 
 def getDailYBars(symbol, start,end=None): # sao inclusas barras com  tempo de abertura <= end.
@@ -649,11 +767,12 @@ def getDailYBars(symbol, start,end=None): # sao inclusas barras com  tempo de ab
        rates_frame['time']=pd.to_datetime(rates_frame['time'], unit='s')
        return rates_frame
 
-"""
-  Returns a serie of returns from bars using open-close prices
+
+def get_returns(bars):
+    """
+  Returns a serie of returns from given bars using open-close prices
     close[i]/open[i]-1
 """
-def get_returns(bars):
     if not connected:
         print("In order to use this function, you must be connected to the Stock Exchange. Use function connect()")
         return
@@ -662,75 +781,105 @@ def get_returns(bars):
         x.append(bars['close'][i]/bars['open'][i]-1)
     return x
 
-"""
-  Returns the last close price from bars
-"""
+
 def get_last(bars): # argumento deve ser bars nao vazia, retorna erro se estiver vazia
+    """
+  Returns the last close price from given bars
+"""
     if bars is None:
         return 0.0
     return bars['close'].iloc[-1]
 
-"""
-  Returns the first open price from bars
-"""
+
 def get_first(bars):# argumento deve ser bars nao vazia, retorna erro se estiver vazia
+    """
+  Returns the first open price from given bars
+"""
     if bars is None:
         return 0
     return bars['open'][0]
-"""
-  Returns the max high price from bars
-"""
+
 def get_max(bars):# argumento deve ser bars nao vazia, retorna erro se estiver vazia
+    """
+  Returns the max high price from given bars
+"""
     if bars is None:
         return 0
     return max(bars['high'])
 
-"""
-  Returns the min low price from bars
-"""
+
 def get_min(bars):# argumento deve ser bars nao vazia, retorna erro se estiver vazia
+    """
+  Returns the min low price from given bars
+"""
     if bars is None:
         return 0
     return max(bars['low'])
 
-"""
-  Returns the last time from bars
-"""
+
 def get_last_time(bars): # argumento deve ser bars nao vazia, retorna erro se estiver vazia
+    """
+  Returns the last time from given bars
+"""
     if bars is None:
         return 0
     return bars['time'].iloc[-1]
-"""
-  Returns the first time from bars
-"""
+
 def get_first_time(bars):# argumento deve ser bars nao vazia, retorna erro se estiver vazia
+    """
+  Returns the first (earlier) time from given bars
+"""
     if bars is None:
         return 0
     return bars['time'][0]
 
-"""
+
+def read_bars_file(fileName):
+    """
  Returns a pandas data frame with the content of the bars file given as parameter.
     Bars files are csv files that can be obtained from MetaTrader with the following nine columns:
      date,time,open,high,low,close,vol, tickvol,spread
 """
-def read_bars_file(fileName):
     df=pd.read_csv(fileName,delimiter='\t',names=['date','time','open','high','low','close','vol', 'tickvol','spread'],header=0) 
     if df is None or len(df.columns)!=9:
         print("The bars file should be a csv file with nine columns: date,time,open,high,low,close,vol, tickvol,spread")
         return None
     else:
         return df
-"""
+
+def get_bars(symbol, start,end=None,timeFrame=DAILY):
+    """
  Returns a pandas data frame with bars information. Parameters
     symbol - the asset symbol
     start - the start date or the number of the last x desired bars
     end - the end date [optional] 
-    timeFrame - the bars time frame, it may be DAILY (1 day bars) or INTRADAY (1 minute bars)
+    timeFrame - the bars time frame, it may be DAILY (default) (1 day bars) or INTRADAY (1 minute bars)
+        There are others possible time frames, for 1 minute (TIMEFRAME_M1), 2 minutes, 1 hour (TIMEFRAME_H1), two hours, 1 week(TIMEFRAME_W1), one month(TIMEFRAME_MN1), etc.
+            TIMEFRAME_M1
+            TIMEFRAME_M2
+            TIMEFRAME_M3
+            TIMEFRAME_M4
+            TIMEFRAME_M5
+            TIMEFRAME_M6
+            TIMEFRAME_M10
+            TIMEFRAME_M12
+            TIMEFRAME_M15
+            TIMEFRAME_M20
+            TIMEFRAME_M30
+            TIMEFRAME_H1
+            TIMEFRAME_H2
+            TIMEFRAME_H3
+            TIMEFRAME_H4
+            TIMEFRAME_H6
+            TIMEFRAME_H8
+            TIMEFRAME_H12
+            TIMEFRAME_D1
+            TIMEFRAME_W1
+            TIMEFRAME_MN1
     For instance,
-        se.get_bars('AAPL',10) # returns the last 10 bars    
+        se.get_bars('AAPL',10) # returns the last 10 daily bars    
         time   open   high    low  close  tick_volume  spread  real_volume
 """
-def get_bars(symbol, start,end=None,timeFrame=DAILY):
  # definimos o fuso horário como UTC
     #timezone = pytz.timezone("Etc/UTC")
     if not connected:
@@ -740,13 +889,11 @@ def get_bars(symbol, start,end=None,timeFrame=DAILY):
         return None
     else:
         symbol=symbol.upper()
-    if timeFrame==DAILY:
-        timeFrame=mt5.TIMEFRAME_D1
-    elif timeFrame==INTRADAY:
-        timeFrame=mt5.TIMEFRAME_M1
-    elif timeFrame==H1:
-        timeFrame=mt5.TIMEFRAME_H1
-    else:
+    if timeFrame in [DAILY,H1,INTRADAY,TIMEFRAME_M1,TIMEFRAME_M2,TIMEFRAME_M3,TIMEFRAME_M4	,TIMEFRAME_M5,TIMEFRAME_M6,TIMEFRAME_M10,TIMEFRAME_M12,TIMEFRAME_M15,  \
+    TIMEFRAME_M20,TIMEFRAME_M30,TIMEFRAME_H1,TIMEFRAME_H2,TIMEFRAME_H3,TIMEFRAME_H4,TIMEFRAME_H6,TIMEFRAME_H8,TIMEFRAME_H12,TIMEFRAME_D1,TIMEFRAME_W1,TIMEFRAME_MN1]:
+        # if it is a valid time frame it just continues
+        pass
+    else:  # if timeframe is invalid, assumes it is daily
         timeFrame=mt5.TIMEFRAME_D1
     if end is None:
         #if timeFrame!=mt5.TIMEFRAME_M1:
@@ -778,16 +925,275 @@ def get_bars(symbol, start,end=None,timeFrame=DAILY):
 
 
 
-"""
+
+def get_multi_bars(assets,start,end=None,type=DAILY):
+    """
 Returns bars for multiple assets. It is similar to get_bars (that deals with just one asset)
     mbars=get_multi_bars(assets,start,end)
     mbars[assets[0]] # bars for the first asset (0)
 """
-def get_multi_bars(assets,start,end=None,type=DAILY):
     dbars=dict()
     for asset in assets:
-        dbars[asset]=se.get_bars(asset,start,end,type)
+        dbars[asset]=get_bars(asset,start,end,type)
     return dbars
+
+
+
+
+def get_orders(start,end,allFields=False):
+    """
+Returns list of orders for a given period of time  (start-end)as pandas DataFrame
+    Parameters: start,end (datetime from datetime)
+                allFields=False (by default only the main fields are returned)
+"""
+    if not connected:
+        print("In order to use this function, you must be connected to the Stock Exchange. Use function connect()")
+        return
+    lis2=mt5.history_orders_get(start,end)
+    df2=pd.DataFrame(list(lis2),columns=lis2[0]._asdict().keys())
+    if not allFields:
+        df2.drop(['time_setup_msc','time_done_msc','time_setup_msc','time_expiration','type_time','state','position_by_id','reason','volume_current','price_stoplimit','sl','tp'], axis=1, inplace=True)
+    df2['time_setup'] = pd.to_datetime(df2['time_setup'], unit='s')
+    df2['time_done'] = pd.to_datetime(df2['time_done'], unit='s')
+    #df2['type'] =df2['type'].map(type_order)
+    #df2['reason'] =df2['reason'].map(reason)
+    return df2
+
+
+
+def get_deals(start,end,allFields=False):
+    """
+Returns list of deals for a given period of time  (start-end)as pandas DataFrame
+    deals - include executed orders and orders executed by the broker (margin calls, withdraws, deposits and others)
+    Parameters: start,end (datetime from datetime)
+                allFields=False (by default only the main fields are returned)
+"""
+    if not connected:
+        print("In order to use this function, you must be connected to the Stock Exchange. Use function connect()")
+        return
+    lis2=mt5.history_deals_get(start,end)
+    df2=pd.DataFrame(list(lis2),columns=lis2[0]._asdict().keys())
+    if not allFields:
+        df2.drop(['entry','swap','external_id','time_msc','magic','order','position_id'], axis=1, inplace=True) 
+    df2['time']=pd.to_datetime(df2['time'], unit='s')
+    #df2['type'] =df2['type'].map(type_order)
+    #df2['reason'] =df2['reason'].map(reason)
+    return df2
+
+
+
+
+# Funcoes auxiliares para type and reason of order and deals
+def order_type(x):
+    """ 
+        Returns a string with type of order 
+        0 - ORDER_TYPE_BUY - Market Buy order
+        1 - ORDER_TYPE_SELL - Market Buy order
+        2 - ORDER_TYPE_BUY_LIMIT - Buy Limit pending order
+        3 - ORDER_TYPE_SELL_LIMIT - Sell Limit pending order
+        4 - ORDER_TYPE_BUY_STOP - Buy Stop pending order
+        5 - ORDER_TYPE_SELL_STOP - Sell Stop pending order
+        6 - ORDER_TYPE_BUY_STOP_LIMIT - Upon reaching the order price, a pending Buy Limit order is placed at the StopLimit price
+        7 - ORDER_TYPE_SELL_STOP_LIMIT - AUpon reaching the order price, a pending Sell Limit order is placed at the StopLimit price
+        8 - ORDER_TYPE_CLOSE_BY - Order to close a position by an opposite one
+    """
+    if x==0:
+        #Market Buy order
+        return 'BUY'
+    elif x==1:
+        #Market Sell order
+        return 'SELL'
+    elif x==2: 
+        #Buy Limit pending order
+        return 'LIMTED_BUY'
+    elif x==3:
+        #Sell Limit pending order
+        return 'LIMITED_SELL'
+    elif x==4:
+        #Buy Stop pending order
+        return 'ORDER_TYPE_BUY_STOP'
+    elif x==5:
+        #Sell Stop pending order
+        return 'ORDER_TYPE_SELL_STOP'
+    elif x==6:
+        #Upon reaching the order price, a pending Buy Limit order is placed at the StopLimit price
+        return 'ORDER_TYPE_BUY_STOP_LIMIT'
+    elif x==7:
+        #Upon reaching the order price, a pending Sell Limit order is placed at the StopLimit price
+        return 'ORDER_TYPE_SELL_STOP_LIMIT'
+    elif x==8:
+        #Order to close a position by an opposite one
+        return 'ORDER_TYPE_CLOSE_BY'
+    else:
+        return 'UNKNOWN'
+
+
+def order_reason(x):
+    """
+        Returns a string with the reason of a given order. Possible values:
+        0 - ORDER_REASON_CLIENT - The order was placed from a desktop terminal
+        1 - ORDER_REASON_MOBILE - The order was placed from a mobile application
+        2 - ORDER_REASON_WEB - The order was placed from a web platform
+        3 - ORDER_REASON_EXPERT - The order was placed from an MQL5-program, i.e. by an Expert Advisor or a script
+        4 - ORDER_REASON_SL - The order was placed as a result of Stop Loss activation
+        5 - ORDER_REASON_TP - The order was placed as a result of Take Profit activation
+        6 - ORDER_REASON_SO - The order was placed as a result of the Stop Out event
+    """
+    if x==0:
+        # Ordem colocada a partir de um terminal desktop
+        return 'ORDER_REASON_CLIENT'
+    elif x==1:
+        #Ordem colocada a partir de um aplicativo móvel
+        return 'ORDER_REASON_MOBILE'
+    elif x==2:
+        #Ordem colocada a partir da plataforma web
+        return 'ORDER_REASON_WEB'
+    elif x== 3:
+        #Ordem colocada a partir de um programa MQL5, Expert Advisor ou script
+        return 'ORDER_REASON_EXPERT'
+    elif x== 4:
+        #Ordem colocada como resultado da ativação do Stop Loss
+        return 'ORDER_REASON_SL'
+    elif x== 5:
+        #Ordem colocada como resultado da ativação do Take Profit
+        return 'ORDER_REASON_TP'
+    elif x== 6:
+        #Ordem colocada como resultado do evento Stop Out
+        return 'ORDER_REASON_SO'
+    else:
+        return 'UNKNOWN'
+
+
+
+def deal_type(x):
+    """
+        Returns a string with type of a deal. Possible values:
+        0 - DEAL_TYPE_BUY - Buy
+        1 - DEAL_TYPE_SELL - Sell
+        2 - DEAL_TYPE_BALANCE - Balance
+        3 - DEAL_TYPE_CREDIT - Credit
+        4 - DEAL_TYPE_CHARGE -Additional charge
+        5 - DEAL_TYPE_CORRECTION - Correction
+        6 - DEAL_TYPE_BONUS - Bonus
+        7 - DEAL_TYPE_COMMISSION - Additional commission
+        8 - DEAL_TYPE_COMMISSION_DAILY - Daily commission
+        9 - DEAL_TYPE_COMMISSION_MONTHLY - Monthly commission
+        10 - DEAL_TYPE_COMMISSION_AGENT_DAILY - Daily agent commission
+        11 - DEAL_TYPE_COMMISSION_AGENT_MONTHLY - Monthly agent commission
+        12 - DEAL_TYPE_INTEREST - Interest rate
+        13 - DEAL_TYPE_BUY_CANCELED - Canceled buy deal. There can be a situation when a previously executed buy deal is canceled. In this case, the type of the previously executed deal (DEAL_TYPE_BUY) is changed to DEAL_TYPE_BUY_CANCELED, and its profit/loss is zeroized. Previously obtained profit/loss is charged/withdrawn using a separated balance operation
+        14 - DEAL_TYPE_SELL_CANCELED - Canceled sell deal. There can be a situation when a previously executed sell deal is canceled. In this case, the type of the previously executed deal (DEAL_TYPE_SELL) is changed to DEAL_TYPE_SELL_CANCELED, and its profit/loss is zeroized. Previously obtained profit/loss is charged/withdrawn using a separated balance operation
+        15 - DEAL_DIVIDEND - Dividend operations
+        16 - DEAL_DIVIDEND_FRANKED - Franked (non-taxable) dividend operations
+        17 - DEAL_TAX - Tax charges
+    """
+    if x==0:
+        # Compra
+        return 'DEAL_TYPE_BUY'
+    elif x==1:
+        # Venda
+        return 'DEAL_TYPE_SELL'
+    elif x== 2:
+        # Saldo
+        return 'DEAL_TYPE_BALANCE'
+    elif x== 3:
+        # Crédito
+        return 'DEAL_TYPE_CREDIT'
+    elif x== 4:
+        # Cobrança adicional
+        return 'DEAL_TYPE_CHARGE'
+    elif x==5 :
+        # Correção
+        return 'DEAL_TYPE_CORRECTION'
+    elif x== 6:
+        # Bonus
+        return 'DEAL_TYPE_BONUS'
+    elif x==7:
+        # Comissão adicional
+        return 'DEAL_TYPE_COMMISSION'
+    elif x== 8:
+        # Comissão diária
+        return 'DEAL_TYPE_COMMISSION_DAILY'
+    elif x== 9:
+        # Comissão mensal
+        return 'DEAL_TYPE_COMMISSION_MONTHLY'
+    elif x== 10:
+        # Comissão de agente diário
+        return 'DEAL_TYPE_COMMISSION_AGENT_DAILY'
+    elif x== 11:
+        # Comissão de agente mensal
+        return 'DEAL_TYPE_COMMISSION_AGENT_MONTHLY'
+    elif x== 12:
+        # Taxa de juros
+        return 'DEAL_TYPE_INTEREST'
+    elif x== 13:
+        # Operação de compra cancelada. Pode haver uma situação quando uma operação de compra executada anteriormente é cancelada. Neste caso, o tipo de transação executada anteriormente (DEAL_TYPE_BUY) é alterada para DEAL_TYPE_BUY_CANCELED, e seu lucro/prejuízo é zerado Lucro/prejuízo obtido anteriormente é cobrado/sacado usando uma operação de saldo separada
+        return 'DEAL_TYPE_BUY_CANCELED'
+    elif x==14 :
+        # Operação de venda cancelada. Pode haver uma situação quando uma operação de venda executada anteriormente é cancelada. Neste caso, o tipo da operação executada anteriormente (DEAL_TYPE_SELL) é alterada para DEAL_TYPE_SELL_CANCELED, e seu lucro/prejuízo é zerado. Lucro/prejuízo obtido anteriormente é cobrado/sacado usando uma operação de saldo separada
+        return 'DEAL_TYPE_SELL_CANCELED'
+    elif x==15 :
+        # Operação de dividendos
+        return 'DEAL_DIVIDEND'
+    elif x== 16:
+        # Operação de dividendos franqueados (não tributáveis)
+        return 'DEAL_DIVIDEND_FRANKED'
+    elif x== 17:
+        # Cálculo do imposto
+        return 'DEAL_TAX'
+    else:
+        return 'UNKNOWN'
+
+
+def deal_reason(x):
+    """
+        Returns a string with the reason of a deal. Possible values:
+        0 - DEAL_REASON_CLIENT - The deal was executed as a result of activation of an order placed from a desktop terminal
+        1 - DEAL_REASON_MOBILE - The deal was executed as a result of activation of an order placed from a mobile application
+        2 - DEAL_REASON_WEB - The deal was executed as a result of activation of an order placed from the web platform
+        3 - DEAL_REASON_EXPERT - The deal was executed as a result of activation of an order placed from an MQL5 program or mt5se,  i.e. an Expert Advisor or a script
+        4 - DEAL_REASON_SL  - The deal was executed as a result of Stop Loss activation
+        5 - DEAL_REASON_TP - The deal was executed as a result of Take Profit activation
+        6 - DEAL_REASON_SO - The deal was executed as a result of the Stop Out event
+        7 - DEAL_REASON_ROLLOVER - The deal was executed due to a rollover
+        8 - DEAL_REASON_VMARGIN - The deal was executed after charging the variation margin
+        9 - DEAL_REASON_SPLIT - The deal was executed after the split (price reduction) of an instrument, which had an open position during split announcement
+    """
+    if x==0:
+        #Transação realizada como resultado da ativação de uma ordem colocada a partir de um terminal desktop
+        return 'DEAL_REASON_CLIENT'
+    elif x==1:
+        #Transação realizada como resultado da ativação de uma ordem colocada a partir de um aplicativo móvel
+        return 'DEAL_REASON_MOBILE'
+    elif x==2:
+        #Transação realizada como resultado da ativação de uma ordem colocada a partir da plataforma web
+        return 'DEAL_REASON_WEB'
+    elif x== 3:
+        #Transação realizada como resultado da ativação de uma ordem colocada a partir de um programa MQL5, Expert Advisor ou script
+        return 'DEAL_REASON_EXPERT'
+    elif x== 4:
+        #Transação realizada como resultado da ativação de uma ordem Stop Loss
+        return 'DEAL_REASON_SL'
+    elif x== 5:
+        #Transação realizada como resultado da ativação de uma ordem Take Profit
+        return 'DEAL_REASON_TP'
+    elif x== 6:
+        #Transação realizada como resultado do evento Stop Out
+        return 'DEAL_REASON_SO'
+    elif x== 7:
+        #Transação realizada devido à transferência da posição
+        return 'DEAL_REASON_ROLLOVER'
+    elif x== 8:
+        #Transação realizada após creditada/debitada a margem de variação
+        return 'DEAL_REASON_VMARGIN'
+    elif x== 9:
+        #Transação realizada após o fracionamento (redução do preço) do instrumento que tinha a posição aberta durante o fracionamento    
+        return 'DEAL_REASON_SPLIT'
+    else:
+        return 'UNKNOWN'
+
+
+
 
 """
 Returns intraday (1 minute) bars.
@@ -814,8 +1220,10 @@ def roll_bars(bars, new_bars):
 
 
 
-"""
- Returns a pd.DataFrame like the one below for a group of assets. It is similar to get_multi_bars.
+
+def get_close_prices(assets,start,end=None,timeFrame=DAILY):
+    """
+ Returns a pandas.DataFrame like the one below for a group of assets. It is similar to get_multi_bars.
                 XOM        RRC        BBY         MA        PFE        JPM
 date
 2010-01-04  54.068794  51.300568  32.524055  22.062426  13.940202  35.175220
@@ -824,7 +1232,6 @@ date
 ..
 # Note that 'date' column is the index, the others are assets' close prices
 """
-def get_close_prices(assets,start,end=None,timeFrame=DAILY):
     if not connected:
         print("In order to use this function, you must be connected to the Stock Exchange. Use function connect()")
         return
@@ -838,7 +1245,9 @@ def get_close_prices(assets,start,end=None,timeFrame=DAILY):
         df[asset]=bars['close']
     df=df.set_index('date')
     return df
-"""
+
+def get_close_prices_from_dbars(assets,dbars):
+    """
 Returns a pd.DataFrame like the one below for a group of assets from given multi asset bars
     It is similar to get_multi_bars.
                 XOM        RRC        BBY         MA        PFE        JPM
@@ -850,7 +1259,6 @@ date
 2010-01-08  54.358093  52.597733  32.297466  21.945297  13.756095  36.677460
  Note that 'date' column is the index, the others are assets' close prices
 """
-def get_close_prices_from_dbars(assets,dbars):
     df=pd.DataFrame()
     first=True
     for asset in assets:
@@ -862,11 +1270,12 @@ def get_close_prices_from_dbars(assets,dbars):
     df=df.set_index('date')
     return df
 
-"""
-returns the historical mean, it can be geometric (default) or arithmetic
+
+def mean_historical_return(df,geometric=True):
+    """
+    Returns the historical mean, it can be geometric (default) or arithmetic
     If the data is daily, the mean is daily.
 """
-def mean_historical_return(df,geometric=True):
     expected_returns=dict()
     assets=df.keys()
     for asset in assets:
@@ -879,55 +1288,69 @@ def mean_historical_return(df,geometric=True):
         else:
             ret=(df[asset][size-1]/df[asset][0])
             expected_returns[asset]=ret**(1/(size-1))-1         
-    return pd.Series(expected_returns)
+    return expected_returns
 
 
-"""
-    Returns a dictionary with the last prices of set of assets
-"""
+
 def get_last_prices(assets,dbars=None):
+    """
+    Returns a dictionary with the last prices of set of assets
+        the symbol tickets are the dictionary keys
+"""
     last_prices=dict()
-    for asset in assets:
-        if dbars is None:
+    if dbars is not None:
+        for asset in assets:
             last_prices[asset]=get_last(dbars[asset])
-        else:
+    else:
+        for asset in assets:
             bars=get_bars(asset,1,timeFrame=INTRADAY)
             last_prices[asset]=get_last(bars)
     return last_prices
 
-"""
+
+def get_volume_steps(assets):
+    """
     Returns a dictionary with the volume steps of set of assets
 """
-def get_volume_steps(assets):
     steps=dict()
     for asset in assets:
         steps[asset]=get_volume_step(asset)
     return steps
 
-"""
-    Returns a dictionary with the current number of shares for a set of assets
-"""
-def get_curr_shares(assets):
-    steps=dict()
-    for asset in assets:
-        steps[asset]=get_shares(asset)
-    return steps
 
+def get_curr_shares(assets=None):
+    """
+    Returns a dictionary with the current number of shares for a list of assets.
+    If no list is provided (None), it returns a dictionary for all assets with non zero position
 """
+    if assets is None:
+        cshares=dict()
+        pos=mt5.positions_get()
+        for p in pos:
+            cshares[p.symbol]=p.volume
+        return cshares
+    cshares=dict()
+    for asset in assets:
+        cshares[asset]=get_shares(asset)
+    return cshares
+
+
+def orders_from_weights(weights,last_prices,capital):
+    """
     Returns a list of orders to adopt a portfolio defined by a set of weights (dictionary),
         a set of last prices (dictionary) and the amount of available capital 
 """
-def orders_from_weights(assets,weights,last_prices,capital):
     # sort weights from highest to lowest
     weights=dict(sorted(weights.items(), key=lambda item:item[1],reverse=True))
     #round 1 - buy while never exceeds the desired weight
+    assets=weights.keys()
     sum=0
     curr=dict() # current weights
     volumes=dict() #  order's volumes
     steps=get_volume_steps(assets)
     for asset in assets:
         aval_capital=weights[asset]*capital
-        shares=get_affor_shares(asset,aval_capital,last_prices[asset],steps[asset])
+        shares=get_affor_shares(asset,last_prices[asset],aval_capital,steps[asset])
         if shares<=0:
             curr[asset]=0
             volumes[asset]=0
@@ -954,13 +1377,14 @@ def orders_from_weights(assets,weights,last_prices,capital):
             break
     return volumes
 
-"""
+
+def get_new_orders_from_curr_shares(orders,curr_shares):
+    """
     Get new adjusted orders considering current shares of a set of assets, and orders to buy a certain
     numbers of shares for each asset. For instance,
         if orders define buy 1000 of X and 500 of Y and currently the account has 100 shares of X and 900 shares of Y
         the new orders would be buy 900 shares of X and sell 400 shares of Y.
 """
-def get_new_orders_from_curr_shares(orders,curr_shares):
     new_orders=dict()
     for k in orders.keys():
         new_orders[k]=orders[k]-curr_shares[k]
@@ -968,45 +1392,90 @@ def get_new_orders_from_curr_shares(orders,curr_shares):
 
 
 
-"""
+
+def date(year,month,day,hour=0,min=0,sec=0):
+    """
     Returns a datetime with the specified year,month,day,hour=0,min=0,sec=0
 """
-def date(year,month,day,hour=0,min=0,sec=0):
     return datetime(year,month,day,hour,min,sec)
 
 
 ###############################
 # Classes used in inverse control trader and backtest!!
 class Trader:
+    """
+        Basic Trader class for mt5se
+    """
     def __init__(self):
+        """
+            Trader's constructor
+        """
         pass
     # Receives dbars[asset] - a bars dataframe for each asset in a dictionary
     #   and setups the operation
     def setup(self,dbars):
+        """
+            Receives dbars[asset] - a bars dataframe for each asset in a dictionary
+       and prepares the trader for execution. It is called once, just after trader creation
+        """
         pass
-    # Receives dbars[asset] - a bars dataframe for each asset in a dictionary
-    #   and returns a dictionary with the order for each asset
-    def analyze(self,dbars):
+
+    def trade(self,dbars):
+        """
+            Receives dbars[asset] - a bars dataframe for each asset in a dictionary
+       and returns a list of orders with up to one order for each asset. It is called every trading cycle
+        """
         pass
-    # Receives dbars[asset] - a bars dataframe for each asset in a dictionary
-    #   and frees resources used by the Trader
+
+    def orders_result(self, exec_orders):
+        """
+            Receive a list of executed orders. It is called after Trader.trade() with the list of orders given by Trader.trader that were really executed.
+            Receives orders_res_list - a list of the orders really executed with real volume and price
+       Each result is a dictionary 'order' with:
+        order['symbol'] - string
+        order['isSellOrder'] - boolean
+        order['shares'] - float
+        order['price'] - float
+        It is called once at every trading cycle
+     """
+        pass
+
     def ending(self,dbars):
+        """
+            Receives dbars[asset] - a bars dataframe for each asset in a dictionary
+        It is called once, just before trader's end of execution
+        """
         pass
  
 
-# used for the Trader to get analyzes
 class Analyst:
+    """
+        Basic Analyst class for mt5se. It may be used for Trader to get target prices.
+    """
     def __init__(self):
+        """
+            Analyst's constructor
+        """
         pass
     # Receives dbars[asset] - a bars dataframe for each asset in a dictionary
     #   and setups the operation
     def setup(self,dbars):
+        """
+            Receives dbars[asset] - a bars dataframe for each asset in a dictionary
+       and prepares the analyst for execution. It is called once, just after trader creation
+        """
         pass
-    # Receives dbars[asset] - a bars dataframe for each asset in a dictionary
-    #   and returns a dictionary with the annualized expected returns for each asset
+
     def analyze(self,dbars):
+        """
+            Receives dbars[asset] - a bars dataframe for each asset in a dictionary
+       and returns a list of target price for each asset (-1 if not available for a given asset). It is called every trading cycle
+        """
         pass
-    # Receives dbars[asset] - a bars dataframe for each asset in a dictionary
-    #   and frees resources used by the Analyst
+   
     def ending(self,dbars):
+        """
+            Receives dbars[asset] - a bars dataframe for each asset in a dictionary
+        It is called once, just before analyst's end of execution
+        """
         pass

@@ -142,7 +142,40 @@ def fromDs2NpArrayAllBut(ds,fieldList):
 		fieldList.append(f)
 	return fromDs2NpArray(ds,fieldList)
 
-	
+# se.ai_utils.get_X( dataframe,features list, time frame ) -> returns a np array
+# From bars to dataset
+def get_X(df,attr_list,timeFrame,horizon):
+	ds=pd.DataFrame()
+	lines=len(df)
+	for time in range(timeFrame):
+		for s in df.keys():
+			if s in attr_list:
+				aux=df[s][time:lines-timeFrame-horizon+time]
+				aux=aux.reset_index(drop=True)
+				#del aux['index']
+				#print('aux type=',type(aux))
+				ds[s+str(time)]=aux
+	#print(bars[target][timeFrame+horizon:].shift(-timeFrame),' timeF=',timeFrame,' h=',horizon  )
+	#aux=aux.reset_index(drop=True)
+	#del aux['index']
+	return np.array(ds)
+
+
+# se.ai_utils.get_X( dataframe,features list, time frame ) -> returns a np array
+# From bars to dataset
+def get_Y(df,target,timeFrame,horizon):
+	Y=pd.DataFrame()
+	lines=len(df)
+	aux=df[target][timeFrame+horizon:]
+	aux=aux.reset_index(drop=True)
+	#del aux['index']
+	Y['target']=aux
+
+	return np.array(Y)
+
+def get_XY(df,feature_list,target,timeFrame,horizon):
+	return get_X(df,feature_list,timeFrame,horizon),get_Y(df,target,timeFrame,horizon)
+
 def fromDs2NpArray(ds,fieldList=[]):
 	nfields=len(fieldList)
 	#print('nfields=',nfields)

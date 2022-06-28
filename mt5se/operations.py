@@ -7,11 +7,13 @@
 Operations Module - Disponibiliza funções para facilitar a criação, execução e avaliação de backtests
 """
 
+from mt5se.mt5se import date
 import mt5se as se
 from datetime import datetime
 from datetime import timedelta
 import pandas as pd 
 import time
+import os.path
 
 """
     Returns the time to the given time in the same day in seconds
@@ -22,6 +24,15 @@ def secondsToTime(endHour=18, endMin=0):
     endTime=endTime.replace(hour=endHour, minute=endMin)
     d=endTime-refTime
     return d.total_seconds()
+
+"""
+    Returns the datetime expected to end today's session. For default, 17:00 (hour=17 minute=0) 
+"""
+def sessionEnd(hourSessionEnd=17,minSessionEnd=0):
+    endTime=datetime.now()
+    endTime.replace(hour=hourSessionEnd,minute=minSessionEnd)
+    return endTime
+
 
 """
  Returns a specification to operations session. Parameters:
@@ -133,6 +144,9 @@ sim_dates=[]
 balanceHist=[]
 equityHist=[]
 datesHist=[]
+ordersHist=[]
+averagePrices=dict()
+
 
 """
 Returns the current time in a given operation setup
@@ -150,6 +164,7 @@ def startOps(ops):
     sim_dates.append(getCurrTime(ops))
     mem=ops['mem']
     for asset in assets:
+        averagePrices[asset]=0.0
         dbar=se.get_bars(asset,mem,timeFrame=se.INTRADAY)
         if not dbar is None and not dbar.empty:
             dbars[asset]=dbar
@@ -158,6 +173,7 @@ def startOps(ops):
     balanceHist.append(ops['capital'])
     equityHist.append(ops['capital'])
     datesHist.append(sim_dates[0])
+    ordersHist.append(' ')
     return dbars
 
 def getDeltaOrder(req):
@@ -169,14 +185,21 @@ def getDeltaOrder(req):
     #    return False
     return vol
 
+""" 
+ Returns the Equity in the default currency of the stock
+"""
+def get_equity():
+    return se.account_info().equity
+
 
 def executeOrders(orders,ops,dbars):
     assets=ops['assets']
     total_in_shares=0.0
     sim_dates.append(getCurrTime(ops))
-
+    executedOrders=[]
     txt=''
     balance=se.get_balance() 
+    equity=get_equity()
     for asset in assets:
         shares=se.get_shares(asset)
         order=getOrder(orders,asset)
@@ -184,6 +207,8 @@ def executeOrders(orders,ops,dbars):
         if order!=None:
             if se.checkOrder(order) and se.sendOrder(order): 
                     print('order sent to se')
+                    result=se.getLastOrderResult()
+                    executedOrders.append(result)
             else:
                     print('Error  : ',se.getLastError())
             txt=txt+' '+asset+', '+ str(shares)+', '+str(getDeltaOrder(order))+';'
@@ -193,16 +218,59 @@ def executeOrders(orders,ops,dbars):
     total_in_shares=se.get_position_value()
     if ops['verbose']==True:
         msg=str(len(orders))+' order(s) in time('+str(sim_dates[-1])+' equity={:,.2f} balance={:,.2f} '+txt
-        print(msg.format(balance+total_in_shares,balance))
+        print(msg.format(equity,balance))
     else:
         msg=str(len(orders))+' order(s) in time('+str(sim_dates[-1])+' equity={:,.2f} balance={:,.2f}. Use verbose=True for more information'
-        print(msg.format(balance+total_in_shares,balance))
-    equityHist.append(balance+total_in_shares)
+        print(msg.format(equity,balance))
+    equityHist.append(equity)  # equity in operations 
     balanceHist.append(balance)
     datesHist.append(sim_dates[-1])
+    prices=se.get_last_prices(assets)
+    ordersHist.append(orders_to_txt(assets,orders,prices))
+    return executedOrders
+
+  
     
-    
-    
+def orders_to_txt(assets,orders,prices):
+    assets.sort()
+    txt=''
+    for asset in assets:
+        order=getOrder(orders,asset)
+        if order is not None:
+            if se.isSellOrder(order):
+                sinal='-'
+            else:
+                sinal='+'
+            volume=order['volume']
+        else:  # sem ordem para o ativo
+            sinal=' '
+            volume=0
+        txt=txt+asset+'/'+sinal+str(volume)+'/'+str(prices[asset])+'/ '
+    return txt
+
+def txt_to_orders(txt):
+    orders=[]
+    lst=txt.split('/')
+    if len(lst)%3!=1 or len(lst)<3:
+        return None
+    i=0
+    while i<len(lst)-3:
+        order=0
+        symbol=lst[i].strip()
+        shares=float(lst[i+1])
+        price=float(lst[i+2])
+        if shares>0:
+            order=se.buyOrder(symbol,int(abs(shares)),price)
+        elif shares<0:
+            order=se.sellOrder(symbol,int(abs(shares)),price)
+        else:
+            order=None        
+        i=i+3
+        if order is not None:
+            orders.append(order)
+    return orders
+
+
 
 def getOrder(orders,asset):
     for order in orders:
@@ -275,13 +343,63 @@ def run(trader,ops):
             time.sleep(1)
     while not endedOps(ops):
         orders=trader.trade(dbars)
-        executeOrders(orders,ops,dbars)
+        ex_order_list=executeOrders(orders,ops,dbars)
+        trader.orders_result(ex_order_list)
         dbars=getCurrBars(ops,dbars)
+        saveTick(ops)
         time.sleep(delay)
     print('End of operation saving equity file in ',ops['file'])
     trader.ending(dbars)
     df=saveEquityFile(ops)
     return df
+
+
+def saveTick(ops):
+    """
+    print('csv format, columns: <DATE>		<BALANCE>	<EQUITY>	<DEPOSIT LOAD>')
+<DATE>	            <BALANCE>	<EQUITY>	<DEPOSIT LOAD>
+2019.07.01 00:00	100000.00	100000.00	0.0000
+2019.07.01 12:00	99980.00	99999.00	0.0000
+2019.07.01 12:59	99980.00	100002.00	0.1847
+2019.07.01 12:59	99980.00	99980.00	0.0000
+2019.07.02 14:59	99960.00	99960.00	0.0000
+2019.07.03 13:00	99940.00	99959.00	0.0000
+2019.07.03 13:59	99940.00	99940.00	0.0000
+2019.07.08 15:59	99920.00	99936.00	0.0000
+2019.07.08 16:59	99920.00	99978.00	0.1965
+2019.07.10 10:00	99920.00	99920.00	0.0000
+2019.07.10 10:59	99900.00	99937.00	0.1988
+Formato gerado pelo metatrader,
+ao fazer backtest com o Strategy Tester, clicar na tab 'Graphs' e botao direto 'Export to CSV (text file)'
+    """
+    #print('write report....')
+    if len(equityHist)!=len(balanceHist) or len(balanceHist)!=len(datesHist) or len(datesHist)!=len(ordersHist):
+        print("Erro!! Diferentes tamanhos de historia, de equity, balance e dates")
+        print('bH=',len(balanceHist),' dH=',len(datesHist),' orderHist=',len(ordersHist))
+        return False
+    if len(equityHist)<=0:
+        return False
+    df=pd.DataFrame()
+    df['date']=[]
+    df['balance']=[]
+    df['equity']=[]
+    df['load']=[]
+    df['orders']=[]
+    # Salva apenas o ultimo tick
+    #for i in range(len(equityHist)):
+    
+    i=len(equityHist)-1
+    idx=len(df)
+    df.loc[idx]=[datesHist[i],balanceHist[i],equityHist[i],0.0,ordersHist[i]]
+
+    if os.path.isfile(ops['file']+'.csv'):
+        df.to_csv(ops['file']+'.csv',mode='a',header=False) # file already exists, so it appends
+    else:
+        df.to_csv(ops['file']+'.csv')
+    return df 
+
+
+
 
 
 def saveEquityFile(ops):
@@ -311,11 +429,15 @@ ao fazer backtest com o Strategy Tester, clicar na tab 'Graphs' e botao direto '
     df['balance']=[]
     df['equity']=[]
     df['load']=[]
+    df['orders']=[]
 
     for i in range(len(equityHist)):
-        df.loc[i]=[datesHist[i],balanceHist[i],equityHist[i],0.0]
+        df.loc[i]=[datesHist[i],balanceHist[i],equityHist[i],0.0,ordersHist[i]]
 
-    df.to_csv(ops['file']+'.csv') 
+    if not os.path.isfile(ops['file']+'.csv'): # salva apenas se nao existir!!
+       # df.to_csv(ops['file']+'.csv',mode='a',header=False) # file already exists, so it appends
+        #else:
+        df.to_csv(ops['file']+'.csv')
     return df 
 
 

@@ -9,16 +9,16 @@ import time
 import pandas as pd
 import numpy as np
 
-class DummyTrader(se.Trader):
+class RandomTrader(se.Trader):
     def __init__(self):
         pass
 
     def setup(self,dbars):
         print('just getting started!')
 
-    def trade(self,ops,dbars):
+    def trade(self,dbars):
         orders=[] 
-        assets=ops['assets']
+        assets=list(dbars.keys())
         for asset in assets:
             if rand.randint(2)==1:     
                 order=se.buyOrder(asset,100)
@@ -33,14 +33,15 @@ class DummyTrader(se.Trader):
  
 
 class MonoAssetTrader(se.Trader):
-    def trade(self,bts,dbars):
+    def trade(self,dbars):
         assets=dbars.keys()
         asset=list(assets)[0]
         orders=[]
         bars=dbars[asset]
-        curr_shares=se.backtest.get_shares(bts,asset)
+        curr_shares=se.get_shares(asset)
         # number of shares that you can buy
-        free_shares=se.backtest.get_affor_shares(bts,dbars,asset)
+        price=se.get_last(bars)
+        free_shares=se.get_affor_shares(asset,price)
         rsi=se.tech.rsi(bars)
         if rsi>=70:   
             order=se.buyOrder(asset,free_shares)
@@ -52,20 +53,21 @@ class MonoAssetTrader(se.Trader):
             order=se.sellOrder(asset,curr_shares)
         if order!=None:
                 orders.append(order)
-        return orders    
+        return orders   
 
 
 
 class MultiAssetTrader(se.Trader):
-    def trade(self,bts,dbars):
+    def trade(self,dbars):
         assets=dbars.keys()
         orders=[]
         for asset in assets:
             bars=dbars[asset]
-            curr_shares=se.backtest.get_shares(bts,asset)
-            money=se.backtest.get_balance(bts)/len(assets) # divide o saldo em dinheiro igualmente entre os ativos
+            curr_shares=se.get_shares(asset)
+            money=se.get_balance()/len(assets) # divide o saldo em dinheiro igualmente entre os ativos
             # number of shares that you can buy of asset 
-            free_shares=se.backtest.get_affor_shares(bts,dbars,asset,money)
+            price=se.get_last(bars)
+            free_shares=se.get_affor_shares(asset,price,money)
             rsi=se.tech.rsi(bars)
             if rsi>=70 and free_shares>0: 
                 order=se.buyOrder(asset,free_shares)
@@ -75,13 +77,13 @@ class MultiAssetTrader(se.Trader):
                 order=None
             if order!=None:
                 orders.append(order)
-        return orders    
+        return orders   
 
 
 from sklearn import tree
 from sklearn.preprocessing import KBinsDiscretizer
  
-class SimpleAITrader(se.Trader):  #Decision Tree
+class SimpleAITrader(se.Trader):
 
     def setup(self,dbars):
         assets=list(dbars.keys())
@@ -89,14 +91,17 @@ class SimpleAITrader(se.Trader):  #Decision Tree
             print('Error, this trader is supposed to deal with just one asset')
             return None
         bars=dbars[assets[0]]
+        # remove irrelevant info
+        if 'time' in bars:
+            del bars['time']
         timeFrame=10 # it takes into account the last 10 bars
         horizon=1 # it project the closing price for next bar
         target='close' # name of the target column
         ds=se.ai_utils.bars2Dataset(bars,target,timeFrame,horizon)
-
+        
         X=se.ai_utils.fromDs2NpArrayAllBut(ds,['target'])
         discretizer = KBinsDiscretizer(n_bins=3, encode='ordinal', strategy='uniform') 
-
+        # creates the discrete target
         ds['target']=se.ai_utils.discTarget(discretizer,ds['target'])
         Y=se.ai_utils.fromDs2NpArray(ds,['target'])
 
@@ -105,20 +110,23 @@ class SimpleAITrader(se.Trader):  #Decision Tree
         clf = clf.fit(X, Y)
         self.clf=clf
 
-    def trade(self,bts,dbars):
+    def trade(self,dbars):
             assets=dbars.keys()
             orders=[]
             timeFrame=10 # it takes into account the last 10 bars
             horizon=1 # it project the closing price for next bar
             target='close' # name of the target column
+            money=se.get_balance()/len(assets) # shares the balance equally among the assets
             for asset in assets:
-                curr_shares=se.backtest.get_shares(bts,asset)
-                money=se.backtest.get_balance(bts)/len(assets) # divide o saldo em dinheiro igualmente entre os ativos
-                free_shares=se.backtest.get_affor_shares(asset,money,dbars)
+                bars=dbars[asset]
+                curr_shares=se.get_shares(asset)
+                price=se.get_last(bars)
+                free_shares=se.get_affor_shares(asset,price,money)
                 # get new information (bars), transform it in X
                 bars=dbars[asset]
                 #remove irrelevant info
-                del bars['time']
+                if 'time' in bars:
+                    del bars['time']
                 # convert from bars to dataset
                 ds=se.ai_utils.bars2Dataset(bars,target,timeFrame,horizon)
                 # Get X fields
@@ -139,46 +147,49 @@ class SimpleAITrader(se.Trader):  #Decision Tree
             return orders    
 
 
+
 from sklearn.ensemble import RandomForestClassifier
 #from sklearn.preprocessing import KBinsDiscretizer
 
 class RandomForestTrader(se.Trader):
+
     def setup(self,dbars):
         assets=list(dbars.keys())
-        self.clf=dict()
-        for asset in assets:
-            bars=dbars[assets[0]]
-            # remove irrelevant info
-            if 'time' in bars:
-                del bars['time']
-            timeFrame=10 # it takes into account the last 10 bars
-            horizon=1 # it project the closing price for next bar
-            target='close' # name of the target column
-            ds=se.ai_utils.bars2Dataset(bars,target,timeFrame,horizon)
-            X=se.ai_utils.fromDs2NpArrayAllBut(ds,['target'])
-            discretizer = KBinsDiscretizer(n_bins=3, encode='ordinal', strategy='uniform') 
-            # creates the discrete target
-            ds['target']=se.ai_utils.discTarget(discretizer,ds['target'])
-            Y=se.ai_utils.fromDs2NpArray(ds,['target'])
-            # train model for each asset
-            clf = RandomForestClassifier(n_estimators=10)
-            clf = clf.fit(X, Y)
-            self.clf[asset]=clf
-        self.steps=dict()
-        self.dbars=dbars
-    def trade(self,bts,dbars):
+        if len(assets)!=1:
+            print('Error, this trader is supposed to deal with just one asset')
+            return None
+        bars=dbars[assets[0]]
+        # remove irrelevant info
+        if 'time' in bars:
+            del bars['time']
+        timeFrame=10 # it takes into account the last 10 bars
+        horizon=1 # it project the closing price for next bar
+        target='close' # name of the target column
+        ds=se.ai_utils.bars2Dataset(bars,target,timeFrame,horizon)
+        
+        X=se.ai_utils.fromDs2NpArrayAllBut(ds,['target'])
+        discretizer = KBinsDiscretizer(n_bins=3, encode='ordinal', strategy='uniform') 
+        # creates the discrete target
+        ds['target']=se.ai_utils.discTarget(discretizer,ds['target'])
+        Y=se.ai_utils.fromDs2NpArray(ds,['target'])
+
+        #clf = tree.DecisionTreeClassifier()
+        clf = RandomForestClassifier(n_estimators=10)
+        clf = clf.fit(X, Y)
+        self.clf=clf
+
+    def trade(self,dbars):
             assets=dbars.keys()
             orders=[]
             timeFrame=10 # it takes into account the last 10 bars
             horizon=1 # it project the closing price for next bar
             target='close' # name of the target column
+            money=se.get_balance()/len(assets) # shares the balance equally among the assets
             for asset in assets:
-                #print('Tempo1.1=',datetime.now())
-                curr_shares=se.backtest.get_shares(bts,asset)
-                #money=se.backtest.get_balance(bts)/len(assets) # divide o saldo em dinheiro igualmente entre os ativos
-                if not asset in self.steps:
-                    self.steps[asset]=se.get_volume_step(asset)
-                free_shares=se.backtest.get_affor_shares(bts,dbars,asset,bts['capital'],self.steps[asset])
+                bars=dbars[asset]
+                curr_shares=se.get_shares(asset)
+                price=se.get_last(bars)
+                free_shares=se.get_affor_shares(asset,price,money)
                 # get new information (bars), transform it in X
                 bars=dbars[asset]
                 #remove irrelevant info
@@ -188,8 +199,9 @@ class RandomForestTrader(se.Trader):
                 ds=se.ai_utils.bars2Dataset(bars,target,timeFrame,horizon)
                 # Get X fields
                 X=se.ai_utils.fromDs2NpArrayAllBut(ds,['target'])
+
                 # predict the result, using the latest info
-                p=self.clf[asset].predict([X[-1]])
+                p=self.clf.predict([X[-1]])
                 if p==2:
                     #buy it
                     order=se.buyOrder(asset,free_shares)
@@ -201,4 +213,56 @@ class RandomForestTrader(se.Trader):
                 if order!=None:
                     orders.append(order)
             return orders    
+
+
+
+
+"""
+  Monoaset Monoanalyst Trader, it may be used to evaluate one analyst in respect of one asset
+"""
+class AnalystTrader(se.Trader):
+    def __init__(self,analyst):
+        pass
+        self.analyst=analyst
+        self.dates=[]
+        self.current=[]
+        self.predicted=[]
+        self.actual=[]   
+
+    def setup(self,dbars):
+        self.analyst.setup(dbars)
+        
+    
+    def trade(self,ops,dbars):
+        orders=[] 
+        assets=ops['assets']
+        asset=assets[0]
+        if len(assets)!=1:
+            print('Error!! Analyst trader should manage one and just one asset!!!')
+            exit()
+        mu=self.analyst.analyze(dbars)# Analysts returns a dictionary with the target prices for each asset
+        bars=dbars[asset]
+        p=se.get_last(bars) # last price  TODO: esta pegando o preco atual ao inves do seguinte a predicao
+        #p_1=bars['close'].iloc[-2]
+       #old  actual_return=(p/p_1)**252-1 #actual price #  old (annualized) return from the last cycle (p[t]/p[t-1])^252-1
+        self.dates.append(bars['time'].iloc[-1])
+        self.current.append(p)
+        self.predicted.append(mu[asset])
+        self.actual.append(p)
+        return orders #AnalystTrader always return no orders!!
+
+    def saveAnalystFile(self):
+            print('save analyst file')
+            df=pd.DataFrame()
+            df['date']=[]
+            df['current']=[]
+            df['predicted']=[] # predicted (annualized) return 
+            df['actual']=[]  # actual (annualized) return from the last cycle (p[t]/p[t-1])^252-1
+            #df['price']=[]   #asset price
+
+            for i in range(len(self.dates)):
+                df.loc[i]=[self.dates[i],self.current[i],self.predicted[i],self.actual[i]]
+            df.to_csv('analyst_performance.csv') 
+
+
 

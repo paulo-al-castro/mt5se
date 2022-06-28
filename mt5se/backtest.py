@@ -13,6 +13,7 @@ from datetime import datetime
 from datetime import timedelta
 import pandas as pd 
 import numpy as np
+import os.path
 
 
 def set(assets,prestart,start,end,period,capital,file='backtest_file',verbose=False):
@@ -103,6 +104,7 @@ def endedBckt(bts):
 balanceHist=[]
 equityHist=[]
 datesHist=[]
+ordersHist=[]
 
 def checkOrder(req,bts,bars):
     if req==None:
@@ -126,9 +128,22 @@ def checkOrder(req,bts,bars):
         return False
 
 
+def compute_order(order,volume,price):
+    lastOrderResult=dict()
+    lastOrderResult['symbol']=order['symbol'] 
+    lastOrderResult['isSellOrder']=se.isSellOrder(order)
+    lastOrderResult['shares']=volume
+    lastOrderResult['price']=price
+    return lastOrderResult
+
+
+
+
+
 def computeOrders(orders,bts,dbars):
     assets=bts['assets']
     total_in_shares=0.0
+    executedOrdersList=[]
     if orders==None:
         equityHist.append(equityHist[-1])
         balanceHist.append(balanceHist[-1])
@@ -164,7 +179,8 @@ def computeOrders(orders,bts,dbars):
             bts['capital']=bts['capital']-volume*price
             if bts['verbose']:
                 print("Order for buying ",volume,"shares of asset=",asset, " at price=",price)
-        
+        ord_result=compute_order(order,volume,price)
+        executedOrdersList.append(ord_result)
         total_in_shares=total_in_shares+float(bts['shares_'+asset])*price # counts the value in asset with order
     if bts['verbose']:
         print( len(orders),' order(s) in time(',bts['curr'],') = ',sim_dates[bts['curr']],' capital=',bts['capital'], 'total in shares=',total_in_shares, 'equity=',bts['capital']+total_in_shares)
@@ -172,7 +188,9 @@ def computeOrders(orders,bts,dbars):
     balanceHist.append(bts['capital'])
     datesHist.append(sim_dates[bts['curr']])
     #detalhamento das ordens
-    
+    prices=se.get_last_prices(assets)
+    ordersHist.append(se.operations.orders_to_txt(assets,orders,prices))
+    return executedOrdersList
     
 
 def getOrder(orders,asset):
@@ -250,7 +268,8 @@ def run(trader,bts):
         #orders=trader.getNewInfo(dbars)
         orders=trader.trade(dbars)
         dbars=getCurrBars(bts,dbars)
-        computeOrders(orders,bts,dbars)
+        ex_orders_list=computeOrders(orders,bts,dbars)
+        trader.orders_result(ex_orders_list)
         if bts['verbose']:
             print("Advancing simulated date from ",bts['curr']," = ",sim_dates[bts['curr']])
         bts['curr']=bts['curr']+1 # advances simulated time
@@ -264,7 +283,7 @@ def run(trader,bts):
 def saveEquityFile(bts):
     """
     print('csv format, columns: <DATE>		<BALANCE>	<EQUITY>	<DEPOSIT LOAD>')
-<DATE>	            <BALANCE>	<EQUITY>	<DEPOSIT LOAD>
+<DATE>	            <BALANCE>	<EQUITY>	<DEPOSIT LOAD> <orders>
 2019.07.01 00:00	100000.00	100000.00	0.0000
 2019.07.01 12:00	99980.00	99999.00	0.0000
 2019.07.01 12:59	99980.00	100002.00	0.1847
@@ -288,11 +307,15 @@ ao fazer backtest com o Strategy Tester, clicar na tab 'Graphs' e botao direto '
     df['balance']=[]
     df['equity']=[]
     df['load']=[]
+    df['orders']=[]
 
     for i in range(len(equityHist)):
-        df.loc[i]=[datesHist[i],balanceHist[i],equityHist[i],0.0]
+        df.loc[i]=[datesHist[i],balanceHist[i],equityHist[i],0.0,ordersHist[i]]
 
-    df.to_csv(bts['file']+'.csv') 
+    if os.path.isfile(bts['file']+'.csv'):
+        df.to_csv(bts['file']+'.csv',mode='a',header=False) # file already exists, so it appends
+    else:
+        df.to_csv(bts['file']+'.csv') 
     return df 
 
 
@@ -509,14 +532,5 @@ def calcSharpeRatio(returns, riskfree):
        return (avg-riskfree)/sigma
    print("Error!! standard deviation of returns is not suposed to be zero, but it is!!")
    return -1
-
-
-
-
-
-
-
-
-
 
 
